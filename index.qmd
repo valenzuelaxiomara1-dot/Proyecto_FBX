@@ -16,6 +16,15 @@ El presente informe tiene como objetivo principal analizar el comportamiento de 
 ## 2. Carga y limpieza de los datos del servidor
 
 En este apartado cargamos nuestra muestra del archivo de registros (`muestra.log`) utilizando una expresión regular optimizada con Pandas para separar cada línea en columnas útiles de forma masiva.
+
+::: {.callout-note}
+## ¿Qué hemos hecho y por qué?
+El archivo original del servidor es un texto plano desordenado. Usamos una expresión regular (*regex*) para recortar cada renglón y ordenarlo en una tabla limpia (IP, fecha, método, URL, status, bytes, etc.). Convertimos los tipos de datos (fechas a formato temporal y bytes a numérico con `errors="coerce"`) para poder operar matemáticamente con ellos sin que el script falle.
+:::
+
+## 2. Carga y limpieza de los datos del servidor
+
+En este apartado cargamos nuestra muestra del archivo de registros (`muestra.log`) utilizando una expresión regular optimizada con Pandas para separar cada línea en columnas útiles de forma masiva.
 El log es texto plano. La regex separa cada línea en columnas y después se convierten los tipos (si la fecha no es fecha no se puede agrupar por hora; si bytes no es número no se pueden hacer medias). errors="coerce" convierte los valores raros en nulos en lugar de romper.
 
 ```{python}
