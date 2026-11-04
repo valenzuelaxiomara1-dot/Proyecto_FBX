@@ -1,33 +1,92 @@
 ---
 title: "Análisis de logs de acceso de un servidor web con Pandas"
-author: "Fred Ruiz, Bryan Paucar, Xiomara Valenzuela"
+subtitle: "Proyecto FBX · Trabajo 1 · 2º de ASIR"
+author: "Fred Ruiz Guerrero, Bryan Fabricio Paucar Alvarado, Xiomara Isabella Valenzuela Maza"
 date: today
+lang: es
 jupyter: python3
 ---
 
-## 1. Introducción y Objetivos
+---
 
-El presente informe tiene como objetivo principal analizar el comportamiento de un servidor web a través de la interpretación y procesamiento de sus registros de acceso (*logs*). Utilizando herramientas de ciencia de datos con Python (Pandas, Seaborn y Plotly) integradas en un entorno reproducible con Quarto, buscamos:
+## 1. Introducción y objetivos
 
-* Estructurar y limpiar datos masivos de texto plano.
-* Evaluar la estabilidad y el rendimiento general del servidor.
-* Detectar posibles anomalías, errores de navegación o comportamientos sospechosos (como bots y escaneos automatizados) para proponer medidas correctivas desde el punto de vista de la administración de sistemas (*SysAdmin*).
+### 1.1 Contexto
 
-## 2. Carga y limpieza de los datos del servidor
+Un servidor web anota en un archivo de texto (el *log de acceso*) cada petición que recibe: quién la hace, cuándo, qué pide y si el servidor pudo atenderla. Para un administrador de sistemas, ese archivo es una fuente directa de información sobre el rendimiento, los errores y la seguridad del servicio.
 
-En este apartado cargamos nuestra muestra del archivo de registros (`muestra.log`) utilizando una expresión regular optimizada con Pandas para separar cada línea en columnas útiles de forma masiva.
+En este trabajo analizamos con Pandas el log de acceso de una tienda online, siguiendo el método de un SysAdmin: limpiar los datos, explorarlos, hacer preguntas concretas y proponer acciones correctoras a partir de los resultados.
 
-::: {.callout-note}
-## ¿Qué hemos hecho y por qué?
-El archivo original del servidor es un texto plano desordenado. Usamos una expresión regular (*regex*) para recortar cada renglón y ordenarlo en una tabla limpia (IP, fecha, método, URL, status, bytes, etc.). Convertimos los tipos de datos (fechas a formato temporal y bytes a numérico con `errors="coerce"`) para poder operar matemáticamente con ellos sin que el script falle.
-:::
+### 1.2 Preguntas que queremos responder
 
-## 2. Carga y limpieza de los datos del servidor
+1. ¿Cuándo hay más carga en el servidor y cómo se reparte a lo largo del día?
+2. ¿Qué proporción de peticiones termina en error y de qué tipo (cliente o servidor)?
+3. ¿Qué direcciones IP generan más tráfico o más errores y podrían ser abusivas?
+4. ¿Qué parte del tráfico procede de robots (bots) y cuál de usuarios reales?
+5. ¿Qué parte del tráfico procede de máquinas identificables por nombre (hostname)?
 
-En este apartado cargamos nuestra muestra del archivo de registros (`muestra.log`) utilizando una expresión regular optimizada con Pandas para separar cada línea en columnas útiles de forma masiva.
-El log es texto plano. La regex separa cada línea en columnas y después se convierten los tipos (si la fecha no es fecha no se puede agrupar por hora; si bytes no es número no se pueden hacer medias). errors="coerce" convierte los valores raros en nulos en lugar de romper.
+### 1.3 Herramientas utilizadas
+
+| Herramienta | Uso en el proyecto |
+|---|---|
+| Python y Pandas | Carga, limpieza, agrupación y análisis de los datos |
+| Matplotlib y Seaborn | Gráficos estáticos |
+| Plotly | Gráficos interactivos y animados |
+| Quarto | Redacción del informe y generación de la web |
+| Git y GitHub | Control de versiones, repositorio y publicación en GitHub Pages |
+
+## 2. Dataset
+
+### 2.1 Origen, licencia y cita
+
+El dataset *Web Server Access Logs* está publicado en Kaggle por eliasdabbas y procede de un conjunto de datos de Harvard Dataverse. Contiene 3,5 GB de logs en formato Nginx de una tienda online iraní. Su licencia es CC0 (dominio público).
+
+- Kaggle: <https://www.kaggle.com/datasets/eliasdabbas/web-server-access-logs>
+- Cita: Zaker, Farzin (2019), «Online Shopping Store - Web Server Logs», Harvard Dataverse, V1, <https://doi.org/10.7910/DVN/3QBYB5>
+
+Es un dataset adecuado para la administración de sistemas porque reproduce el trabajo real con logs de un servidor web: tráfico de usuarios, tráfico de robots, errores HTTP y posibles comportamientos abusivos.
+
+### 2.2 Archivos y columnas
+
+El dataset incluye dos archivos.
+
+**`access.log`** (3,5 GB): una línea por petición. De cada línea extraemos estos campos:
+
+| Columna | Significado |
+|---|---|
+| `ip` | Dirección IP del cliente que hace la petición |
+| `fecha` | Fecha y hora de la petición (con zona horaria) |
+| `metodo` | Método HTTP (GET, POST...) |
+| `url` | Recurso solicitado |
+| `protocolo` | Versión del protocolo HTTP |
+| `status` | Código de respuesta del servidor (200, 404, 500...) |
+| `bytes` | Tamaño de la respuesta en bytes |
+| `referer` | Página desde la que llegó el cliente |
+| `user_agent` | Navegador o programa que hizo la petición |
+
+**`client_hostname.csv`** (13 MB): información adicional sobre los clientes.
+
+| Columna | Significado |
+|---|---|
+| `client` | Dirección IP del cliente (clave para unir con el log) |
+| `hostname` | Nombre de la máquina asociado a esa IP |
+| `alias_list` | Alias del nombre (en la mayoría de casos, *Unknown host*) |
+| `address_list` | Lista de direcciones (casi siempre vacía) |
+
+### 2.3 Muestreo y justificación del tamaño
+
+El log completo pesa 3,5 GB: no cabe en un repositorio de GitHub (límite de 100 MB por archivo) y es demasiado grande para procesarlo cómodamente en un ordenador personal. Por eso trabajamos con una **muestra sistemática**: una de cada N líneas, con N = 100 (*sustituid por el valor real que hayáis usado*). Tomar una línea de cada N, en lugar de las primeras líneas, reparte la muestra por todo el periodo del log. El script que la genera está en `scripts/crear_muestra.py`.
+
+### 2.4 Tabla auxiliar de códigos HTTP
+
+Para traducir los códigos de respuesta a su significado y agruparlos por categoría, usamos una tabla auxiliar propia (`data/codigos_http.csv`) con tres columnas: `status`, `descripcion` y `categoria`.
+
+## 3. Carga y parseo del log
+
+Cada línea del log es texto plano. Mediante una expresión regular separamos sus campos y los guardamos en las columnas de un DataFrame. Después convertimos los tipos de datos: la fecha a tipo fecha (en la hora local del servidor, Irán, UTC+3:30), el código de estado a entero y los bytes a número.
 
 ```{python}
+#| label: carga-log
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -41,10 +100,12 @@ with open("data/muestra.log", encoding="utf-8", errors="ignore") as f:
 
 df = pd.Series(lineas).str.extract(patron)
 df.columns = columnas
+print("Líneas leídas:", len(df))
 print("Líneas sin parsear:", df["ip"].isna().sum())
 df = df.dropna(subset=["ip"]).copy()
 
 df["fecha"] = pd.to_datetime(df["fecha"], format="%d/%b/%Y:%H:%M:%S %z", utc=True)
+df["fecha"] = df["fecha"].dt.tz_convert("Asia/Tehran")
 df["status"] = df["status"].astype(int)
 df["bytes"] = pd.to_numeric(df["bytes"], errors="coerce")
 df["hora"] = df["fecha"].dt.hour
@@ -52,73 +113,160 @@ df["dia"] = df["fecha"].dt.date
 df.head()
 ```
 
-Qué hacemos hecho aquí: El archivo original del servidor es simplemente un bloc de notas gigante lleno de líneas de texto desordenadas.
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (indicad cuántas líneas se han leído y cuántas no se han podido parsear).
 
-Por qué se hace: Usamos una herramienta inteligente (llamada regex) para recortar cada renglón y ordenarlo en una tabla limpia (con columnas como la IP del usuario, la hora, la página que visitó, etc.). También nos aseguramos de que las fechas y los números se entiendan bien para poder hacer operaciones matemáticas después.
+**Qué significa:** (explicad si el porcentaje de líneas descartadas es despreciable o indica un problema de formato).
 
----
+**Qué haría un SysAdmin:** (por ejemplo, revisar las líneas descartadas para ver si indican un fallo del servidor o un intento de ataque).
+:::
 
-### Sección 2: Exploración y resúmenes estadísticos
+## 4. Exploración inicial y limpieza (EDA)
 
-```markdown
+### 4.1 Estructura y tipos de datos
 
-Antes de sacar conclusiones hay que saber si los datos son fiables. Los tres resúmenes responden a: ¿hay muchos errores?, ¿cuándo hay más carga?, ¿alguna IP hace demasiadas peticiones?
-```
 ```{python}
+#| label: eda-info
 df.info()
 display(df.describe())
+```
+
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (número de filas, tipos de datos y valores mínimo, medio y máximo de `bytes`).
+
+**Qué significa:** (si hay respuestas muy pesadas o muy ligeras respecto a la media).
+
+**Qué haría un SysAdmin:** (por ejemplo, revisar los recursos de mayor tamaño por si conviene comprimirlos o servirlos de otra forma).
+:::
+
+### 4.2 Nulos, duplicados y rango de fechas
+
+```{python}
+#| label: eda-nulos
 display(df.isna().sum())
 print("Filas duplicadas:", df.duplicated().sum())
+print("Primera petición:", df["fecha"].min())
+print("Última petición:", df["fecha"].max())
+print("Días distintos:", df["dia"].nunique())
 ```
+
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (columnas con nulos, número de duplicados y periodo cubierto por la muestra).
+
+**Qué significa:** (los nulos en `bytes` suelen ser respuestas sin cuerpo; los duplicados pueden ser peticiones legítimas en el mismo segundo).
+
+**Qué haría un SysAdmin:** (decidir si se limpian o se conservan los datos y justificarlo).
+:::
+
+### 4.3 Resúmenes estadísticos
+
+**Resumen 1: distribución de códigos de respuesta.**
+
 ```{python}
+#| label: resumen-status
 display(df["status"].value_counts())
-display(df.groupby("hora").size())
+(df["status"].value_counts(normalize=True) * 100).round(2)
+```
+
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (porcentaje de respuestas 200, 3xx, 4xx y 5xx).
+
+**Qué significa:** (un porcentaje alto de 404 apunta a enlaces rotos o a escaneos; los 5xx indican fallos del servidor).
+
+**Qué haría un SysAdmin:** (revisar enlaces rotos y los errores 5xx en los logs de error).
+:::
+
+**Resumen 2: peticiones por hora del día (hora local del servidor).**
+
+```{python}
+#| label: resumen-hora
+por_hora = df.groupby("hora").size()
+por_hora
+```
+
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (horas de mayor y menor tráfico).
+
+**Qué significa:** (el patrón diario de uso de la tienda).
+
+**Qué haría un SysAdmin:** (programar mantenimientos y copias de seguridad en las horas de menor carga).
+:::
+
+**Resumen 3: las 10 IPs con más peticiones.**
+
+```{python}
+#| label: resumen-ips
 df["ip"].value_counts().head(10)
 ```
-Qué hacemos hecho aquí: Hacemos una revisión general de los datos antes de creer ciegamente en ellos.
 
-Por qué se hace: Nos preguntamos cosas básicas pero vitales: ¿Hay muchos errores?, ¿A qué hora se conecta más gente?, ¿Hay alguna computadora (IP) que esté repitiendo peticiones de forma exagerada? Esto nos dice si los datos son fiables.
----
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (las IPs más activas y cuántas peticiones hacen).
 
-### Sección 3: Enriquecimiento de datos (Merge)
+**Qué significa:** (una IP con un volumen mucho mayor que el resto suele ser un robot o un comportamiento abusivo).
 
-```markdown
+**Qué haría un SysAdmin:** (identificar a quién pertenece cada IP y valorar limitarla o bloquearla).
+:::
 
-## 3. Enriquecimiento de datos (Merge)
+## 5. Combinación de datos (`merge`)
 
-Cumple el requisito de combinar datos y traduce números a significado. how="left" conserva todas las filas del log aunque algún código no esté en la tabla.
-```
+### 5.1 Unión del log con `client_hostname.csv`
+
+Antes de combinar, exploramos el segundo archivo y eliminamos IPs repetidas para que cada IP aparezca una sola vez. Después unimos por la IP, conservando todas las peticiones del log (`how="left"`), y comprobamos que la relación es de muchos a uno (`validate="m:1"`).
+
 ```{python}
-# Leer el CSV especificando la coma como separador
-codigos = pd.read_csv("data/codigos_http.csv", sep=",", on_bad_lines="skip")
+#| label: merge-hostname
+hosts = pd.read_csv("data/client_hostname.csv")
+hosts.info()
+hosts = hosts.rename(columns={"client": "ip"}).drop_duplicates(subset="ip")
 
-# Mostrar las columnas detectadas para verificar
-print("Columnas detectadas en el CSV:", codigos.columns.tolist())
+df = df.merge(hosts[["ip", "hostname"]], on="ip", how="left", validate="m:1")
+df["resuelto"] = df["hostname"].notna() & (df["hostname"] != df["ip"])
+print("Peticiones con hostname identificado (%):", round(df["resuelto"].mean() * 100, 2))
+df.loc[df["resuelto"], "hostname"].value_counts().head(10)
+```
 
-# Asegurar que el tipo de dato coincida para el cruce
-df["status"] = df["status"].astype(int)
-codigos["status"] = codigos["status"].astype(int)
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (porcentaje de peticiones cuyo cliente tiene un nombre identificado y cuáles son los más frecuentes).
 
-# Realizar el merge
+**Qué significa:** (la mayor parte del tráfico es anónimo; los nombres identificados suelen ser servicios y robots conocidos).
+
+**Qué haría un SysAdmin:** (usar los hostnames para distinguir tráfico legítimo de tráfico desconocido y decidir reglas de cortafuegos).
+:::
+
+### 5.2 Unión con la tabla de códigos HTTP
+
+```{python}
+#| label: merge-codigos
+codigos = pd.read_csv("data/codigos_http.csv")
 df = df.merge(codigos, on="status", how="left")
 df["categoria"] = df["categoria"].fillna("Otro")
 df[["status", "descripcion", "categoria"]].head()
 ```
 
-Qué hacemos hecho aquí: En los registros del servidor, los resultados aparecen con números fríos (como 200 o 404). Usamos una pequeña tabla externa para traducir esos números a un idioma humano.
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (cada código aparece ahora con su descripción y su categoría).
 
-Por qué se hace: Así convertimos un número aburrido en una categoría clara de negocio (por ejemplo, saber que un 404 significa un "Error de cliente / Página no encontrada").
----
+**Qué significa:** (permite agrupar los resultados por tipo de respuesta: éxito, redirección, error de cliente o error de servidor).
 
-### Sección 4: Agregaciones, tablas pivote y filtrado avanzado
+**Qué haría un SysAdmin:** (comprobar si hay códigos con categoría "Otro" y completar la tabla auxiliar).
+:::
 
-```markdown
-## 4. Agregaciones, tablas pivote y filtrado avanzado
+## 6. Análisis avanzado
 
- `groupby` compara métricas entre grupos, `pivot_table` cruza dos variables (hora y tipo de respuesta), `loc` filtra por condición y `iloc` por posición. Sirven para aislar comportamientos anómalos, como un bot o un escaneo.
-```
+### 6.1 Agrupaciones (`groupby`)
+
+Comparamos las métricas por método HTTP y, después, el tráfico de robots frente al de usuarios. Consideramos robot toda petición cuyo *user agent* contiene palabras como bot, crawler, spider o slurp.
 
 ```{python}
+#| label: groupby-metodo
 resumen_metodo = df.groupby("metodo").agg(
     peticiones=("ip", "size"),
     bytes_medios=("bytes", "mean"),
@@ -126,19 +274,66 @@ resumen_metodo = df.groupby("metodo").agg(
 ).sort_values("peticiones", ascending=False)
 resumen_metodo
 ```
+
 ```{python}
+#| label: groupby-bots
+df["es_bot"] = df["user_agent"].str.contains("bot|crawler|spider|slurp", case=False, na=False)
+resumen_bots = df.groupby("es_bot").agg(
+    peticiones=("ip", "size"),
+    ips_unicas=("ip", "nunique"),
+    bytes_medios=("bytes", "mean"),
+)
+resumen_bots
+```
+
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (reparto de peticiones por método y proporción de tráfico de robots frente a usuarios).
+
+**Qué significa:** (los robots consumen recursos del servidor; algunos son útiles, como los buscadores, y otros no).
+
+**Qué haría un SysAdmin:** (configurar el archivo robots.txt, limitar la tasa de peticiones de los robots abusivos o bloquearlos).
+:::
+
+### 6.2 Tabla dinámica (`pivot_table`)
+
+Cruzamos la hora del día con la categoría de respuesta para ver cuándo se concentran los errores.
+
+```{python}
+#| label: pivot
 pivot = pd.pivot_table(
     df, index="hora", columns="categoria",
     values="ip", aggfunc="count", fill_value=0
 )
 pivot
 ```
+
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (horas con más errores de cliente o de servidor).
+
+**Qué significa:** (si los errores se concentran en horas concretas, pueden deberse a picos de carga o a robots que actúan en ese momento).
+
+**Qué haría un SysAdmin:** (reforzar los recursos en esas horas o investigar la actividad de esos intervalos).
+:::
+
+### 6.3 Selección avanzada (`loc` e `iloc`)
+
+Aislamos comportamientos anómalos: IPs con un volumen de peticiones superior al percentil 99, IPs con más errores 404 y las respuestas más pesadas.
+
 ```{python}
+#| label: anomalias-ips
 por_ip = df.groupby("ip").size().sort_values(ascending=False)
 umbral = por_ip.quantile(0.99)
 ips_sospechosas = por_ip.loc[por_ip > umbral]
+print("Umbral (percentil 99):", umbral)
+print("IPs por encima del umbral:", len(ips_sospechosas))
 display(ips_sospechosas.head(10))
+display(por_ip.iloc[:5])
+```
 
+```{python}
+#| label: anomalias-404
 errores_404 = df.loc[df["status"] == 404, "ip"].value_counts().head(10)
 display(errores_404)
 
@@ -146,47 +341,115 @@ pesadas = df.loc[df["bytes"] > df["bytes"].quantile(0.99), ["ip", "url", "bytes"
 pesadas
 ```
 
-Qué hemos hecho aquí: Agrupamos la información por horas, por tipo de dispositivo o por dirección IP para cazar comportamientos extraños.
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (IPs que superan el umbral, IPs con más 404 y recursos más pesados).
 
-Por qué se hace: Nos ayuda a descubrir si detrás de las visitas hay un usuario normal o si se trata de un robot malintencionado (un bot) intentando hackear o saturar la página web mediante peticiones repetitivas o descargas muy pesadas.
----
+**Qué significa:** (un alto número de 404 desde una misma IP sugiere un escaneo de rutas; las respuestas muy pesadas pueden saturar el ancho de banda).
 
-### Sección 5: Visualización del tráfico
+**Qué haría un SysAdmin:** (bloquear o limitar las IPs abusivas con el cortafuegos o con fail2ban, y optimizar los recursos más pesados).
+:::
 
-```markdown
-## 5. Visualización
+## 7. Visualización
 
-**Motivo:** Un gráfico comunica de un vistazo lo que una tabla grande esconde. El tercero es animado e interactivo, como pide el enunciado.
-```
+### 7.1 Gráfico estático: códigos de respuesta
 
 ```{python}
+#| label: fig-estado
+#| fig-cap: "Número de peticiones por código de estado HTTP"
 plt.figure(figsize=(8, 4))
 sns.countplot(data=df, x="status", order=df["status"].value_counts().index)
 plt.title("Distribución de códigos de estado HTTP")
+plt.xlabel("Código de estado")
+plt.ylabel("Número de peticiones")
 plt.show()
 ```
+
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (código dominante y peso relativo de los errores).
+
+**Qué significa:** (estado general de salud del servicio).
+
+**Qué haría un SysAdmin:** (priorizar la corrección de los errores más frecuentes).
+:::
+
+### 7.2 Gráfico estático: mapa de calor hora × categoría
+
 ```{python}
+#| label: fig-calor
+#| fig-cap: "Peticiones por hora del día y categoría de respuesta"
 plt.figure(figsize=(10, 5))
 sns.heatmap(pivot.T, cmap="YlOrRd")
 plt.title("Peticiones por hora y categoría de respuesta")
+plt.xlabel("Hora del día")
+plt.ylabel("Categoría de respuesta")
 plt.show()
 ```
-```{python}
-horas = df.groupby(["dia", "hora"]).size().reset_index(name="peticiones")
-horas["dia"] = horas["dia"].astype(str)
 
-fig = px.bar(horas, x="hora", y="peticiones", animation_frame="dia",
-             range_y=[0, horas["peticiones"].max()],
-             title="Evolución del tráfico por hora, día a día")
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (franjas horarias con más peticiones y en qué categoría).
+
+**Qué significa:** (patrones de uso y posibles picos anómalos).
+
+**Qué haría un SysAdmin:** (dimensionar los recursos del servidor según la franja de mayor carga).
+:::
+
+### 7.3 Gráfico interactivo y gráfico animado
+
+El primer gráfico es interactivo: permite hacer zoom y ver el valor exacto al pasar el ratón. Muestra la evolución de las peticiones por hora a lo largo de todo el periodo.
+
+```{python}
+#| label: fig-linea
+#| fig-cap: "Evolución de las peticiones por hora"
+serie = df.set_index("fecha").resample("1h").size().reset_index(name="peticiones")
+fig = px.line(serie, x="fecha", y="peticiones",
+              title="Peticiones por hora a lo largo del periodo")
 fig.show()
 ```
 
-Qué hacemos aquí: Convertimos las tablas de datos en gráficos visuales fáciles de entender a simple vista (como gráficos de barras y mapas de calor) y añadimos conclusiones prácticas.
+El segundo gráfico es animado: muestra el perfil horario del tráfico día a día. Solo se dibuja si la muestra abarca al menos 3 días.
 
-Por qué se hace: Una imagen vale más que mil palabras. Debajo de cada gráfico explicamos tres cosas clave para que el informe parezca de un profesional de la ciberseguridad (un SysAdmin):
+```{python}
+#| label: fig-animado
+#| fig-cap: "Evolución del tráfico por hora, día a día"
+horas = df.groupby(["dia", "hora"]).size().reset_index(name="peticiones")
+horas["dia"] = horas["dia"].astype(str)
 
-Qué se ve: El dato exacto (ej. "El 4% de los errores son de tipo 404").
+if df["dia"].nunique() >= 3:
+    fig = px.bar(horas, x="hora", y="peticiones", animation_frame="dia",
+                 range_y=[0, horas["peticiones"].max()],
+                 title="Evolución del tráfico por hora, día a día")
+    fig.show()
+else:
+    print("La muestra abarca menos de 3 días: no se dibuja la animación.")
+```
 
-Qué significa: El contexto real (ej. "Son enlaces rotos o alguien buscando fallos en la web").
+::: {.callout-note}
+## Interpretación técnica
+**Qué se ve:** (picos y valles a lo largo del periodo y si el perfil horario se repite cada día).
 
-Qué haría un experto: La solución (ej. "Corregir los enlaces o bloquear la IP sospechosa").
+**Qué significa:** (los picos fuera del patrón habitual pueden indicar campañas, robots o ataques).
+
+**Qué haría un SysAdmin:** (configurar alertas de monitorización cuando el tráfico supere los valores habituales).
+:::
+
+## 8. Conclusiones y acciones correctoras
+
+(Resumid aquí, con datos concretos de vuestros resultados, las conclusiones principales.)
+
+| Hallazgo | Evidencia en los datos | Acción correctora propuesta |
+|---|---|---|
+| (por ejemplo, picos de tráfico en ciertas horas) | (sección 6.2 y gráfico 7.2) | (por ejemplo, reforzar recursos en esa franja) |
+| (por ejemplo, IP con un volumen anormal de peticiones) | (sección 6.3) | (por ejemplo, limitar su tasa o bloquearla con fail2ban) |
+| (por ejemplo, alto porcentaje de errores 404) | (sección 4.3 y gráfico 7.1) | (por ejemplo, revisar enlaces rotos) |
+| (por ejemplo, tráfico de robots elevado) | (sección 6.1) | (por ejemplo, configurar robots.txt y limitar la tasa) |
+
+**Limitaciones del análisis:** el log no incluye tiempos de respuesta, por lo que no se puede estudiar la latencia; el rendimiento se analiza con el volumen de peticiones, los bytes y los códigos de estado. Además, el análisis se basa en una muestra sistemática del log completo.
+
+## Anexo: herramientas y enlaces
+
+- Repositorio de GitHub: <https://github.com/frg-skbd/Proyecto_FBX>
+- Web publicada: (poned aquí la URL real de GitHub Pages)
+- Versiones: (ejecutad `python --version`, `quarto --version` y `pip list` y anotad las versiones de Python, Quarto, Pandas, Matplotlib, Seaborn y Plotly)
