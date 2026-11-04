@@ -86,7 +86,6 @@ Para traducir los códigos de respuesta a su significado y agruparlos por catego
 Cada línea del log es texto plano. Mediante una expresión regular separamos sus campos y los guardamos en las columnas de un DataFrame. Después convertimos los tipos de datos: la fecha a tipo fecha (en la hora local del servidor, Irán, UTC+3:30), el código de estado a entero y los bytes a número.
 
 ```{python}
-#| label: carga-log
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -127,7 +126,6 @@ df.head()
 ### 4.1 Estructura y tipos de datos
 
 ```{python}
-#| label: eda-info
 df.info()
 display(df.describe())
 ```
@@ -144,7 +142,6 @@ display(df.describe())
 ### 4.2 Nulos, duplicados y rango de fechas
 
 ```{python}
-#| label: eda-nulos
 display(df.isna().sum())
 print("Filas duplicadas:", df.duplicated().sum())
 print("Primera petición:", df["fecha"].min())
@@ -183,7 +180,6 @@ display(df["status"].value_counts())
 **Resumen 2: peticiones por hora del día (hora local del servidor).**
 
 ```{python}
-#| label: resumen-hora
 por_hora = df.groupby("hora").size()
 por_hora
 ```
@@ -200,7 +196,6 @@ por_hora
 **Resumen 3: las 10 IPs con más peticiones.**
 
 ```{python}
-#| label: resumen-ips
 df["ip"].value_counts().head(10)
 ```
 
@@ -220,7 +215,6 @@ df["ip"].value_counts().head(10)
 Antes de combinar, exploramos el segundo archivo y eliminamos IPs repetidas para que cada IP aparezca una sola vez. Después unimos por la IP, conservando todas las peticiones del log (`how="left"`), y comprobamos que la relación es de muchos a uno (`validate="m:1"`).
 
 ```{python}
-#| label: merge-hostname
 hosts = pd.read_csv("data/client_hostname.csv")
 hosts.info()
 hosts = hosts.rename(columns={"client": "ip"}).drop_duplicates(subset="ip")
@@ -243,7 +237,6 @@ df.loc[df["resuelto"], "hostname"].value_counts().head(10)
 ### 5.2 Unión con la tabla de códigos HTTP
 
 ```{python}
-#| label: merge-codigos
 codigos = pd.read_csv("data/codigos_http.csv")
 df = df.merge(codigos, on="status", how="left")
 df["categoria"] = df["categoria"].fillna("Otro")
@@ -266,7 +259,6 @@ df[["status", "descripcion", "categoria"]].head()
 Comparamos las métricas por método HTTP y, después, el tráfico de robots frente al de usuarios. Consideramos robot toda petición cuyo *user agent* contiene palabras como bot, crawler, spider o slurp.
 
 ```{python}
-#| label: groupby-metodo
 resumen_metodo = df.groupby("metodo").agg(
     peticiones=("ip", "size"),
     bytes_medios=("bytes", "mean"),
@@ -276,7 +268,6 @@ resumen_metodo
 ```
 
 ```{python}
-#| label: groupby-bots
 df["es_bot"] = df["user_agent"].str.contains("bot|crawler|spider|slurp", case=False, na=False)
 resumen_bots = df.groupby("es_bot").agg(
     peticiones=("ip", "size"),
@@ -300,7 +291,6 @@ resumen_bots
 Cruzamos la hora del día con la categoría de respuesta para ver cuándo se concentran los errores.
 
 ```{python}
-#| label: pivot
 pivot = pd.pivot_table(
     df, index="hora", columns="categoria",
     values="ip", aggfunc="count", fill_value=0
@@ -322,7 +312,6 @@ pivot
 Aislamos comportamientos anómalos: IPs con un volumen de peticiones superior al percentil 99, IPs con más errores 404 y las respuestas más pesadas.
 
 ```{python}
-#| label: anomalias-ips
 por_ip = df.groupby("ip").size().sort_values(ascending=False)
 umbral = por_ip.quantile(0.99)
 ips_sospechosas = por_ip.loc[por_ip > umbral]
@@ -333,7 +322,6 @@ display(por_ip.iloc[:5])
 ```
 
 ```{python}
-#| label: anomalias-404
 errores_404 = df.loc[df["status"] == 404, "ip"].value_counts().head(10)
 display(errores_404)
 
@@ -355,7 +343,6 @@ pesadas
 ### 7.1 Gráfico estático: códigos de respuesta
 
 ```{python}
-#| label: fig-estado
 #| fig-cap: "Número de peticiones por código de estado HTTP"
 plt.figure(figsize=(8, 4))
 sns.countplot(data=df, x="status", order=df["status"].value_counts().index)
@@ -377,8 +364,6 @@ plt.show()
 ### 7.2 Gráfico estático: mapa de calor hora × categoría
 
 ```{python}
-#| label: fig-calor
-#| fig-cap: "Peticiones por hora del día y categoría de respuesta"
 plt.figure(figsize=(10, 5))
 sns.heatmap(pivot.T, cmap="YlOrRd")
 plt.title("Peticiones por hora y categoría de respuesta")
@@ -401,8 +386,6 @@ plt.show()
 El primer gráfico es interactivo: permite hacer zoom y ver el valor exacto al pasar el ratón. Muestra la evolución de las peticiones por hora a lo largo de todo el periodo.
 
 ```{python}
-#| label: fig-linea
-#| fig-cap: "Evolución de las peticiones por hora"
 serie = df.set_index("fecha").resample("1h").size().reset_index(name="peticiones")
 fig = px.line(serie, x="fecha", y="peticiones",
               title="Peticiones por hora a lo largo del periodo")
