@@ -11,7 +11,7 @@ Desde el punto de vista de un administrador de sistemas: limpieza y exploración
 - Fred Ruiz Guerrero
 - Bryan Fabricio Paucar Alvarado
 - Xiomara Isabella Valenzuela Maza
-- 
+  
 ## Enlaces
 
 - **Informe publicado:** (URL de GitHub Pages, por ejemplo https://TU_USUARIO.github.io/Proyecto_FBX/)
