@@ -4,7 +4,7 @@ Trabajo 1 (Pandas) · 2º de ASIR
 
 Análisis de los logs de acceso de un servidor web con Pandas, documentado en un informe de Quarto y publicado como página web con GitHub Pages.
 Desde el punto de vista de un administrador de sistemas: limpieza y exploración de los datos, combinación de tablas (`merge`), agrupaciones (`groupby`), tabla dinámica (`pivot_table`), selección avanzada (`loc` e `iloc`) y visualización con gráficos estáticos e interactivos. El informe está escrito en Quarto y publicado como web.
----
+
 
 ## 👥 Integrantes del Equipo
 
