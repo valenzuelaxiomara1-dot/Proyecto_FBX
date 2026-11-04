@@ -343,7 +343,6 @@ pesadas
 ### 7.1 Gráfico estático: códigos de respuesta
 
 ```{python}
-#| fig-cap: "Número de peticiones por código de estado HTTP"
 plt.figure(figsize=(8, 4))
 sns.countplot(data=df, x="status", order=df["status"].value_counts().index)
 plt.title("Distribución de códigos de estado HTTP")
@@ -395,8 +394,6 @@ fig.show()
 El segundo gráfico es animado: muestra el perfil horario del tráfico día a día. Solo se dibuja si la muestra abarca al menos 3 días.
 
 ```{python}
-#| label: fig-animado
-#| fig-cap: "Evolución del tráfico por hora, día a día"
 horas = df.groupby(["dia", "hora"]).size().reset_index(name="peticiones")
 horas["dia"] = horas["dia"].astype(str)
 
