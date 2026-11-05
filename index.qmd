@@ -1,6 +1,6 @@
 ---
 title: "Análisis de logs de acceso de un servidor web con Pandas"
-subtitle: "Proyecto FBX · Trabajo 1 · 2º de ASIR"
+subtitle: "Proyecto FBX · Trabajo 1: Pandas · 2º de ASIR"
 author: "Fred Ruiz Guerrero, Bryan Fabricio Paucar Alvarado, Xiomara Isabella Valenzuela Maza"
 date: today
 lang: es
@@ -64,6 +64,7 @@ El dataset incluye dos archivos.
 | `referer` | Página desde la que llegó el cliente |
 | `user_agent` | Navegador o programa que hizo la petición |
 
+
 **`client_hostname.csv`** (13 MB): información adicional sobre los clientes.
 
 | Columna | Significado |
@@ -77,9 +78,55 @@ El dataset incluye dos archivos.
 
 El log completo pesa 3,5 GB: no cabe en un repositorio de GitHub (límite de 100 MB por archivo) y es demasiado grande para procesarlo cómodamente en un ordenador personal. Por eso trabajamos con una **muestra sistemática**: una de cada N líneas, con N = 100 (*sustituid por el valor real que hayáis usado*). Tomar una línea de cada N, en lugar de las primeras líneas, reparte la muestra por todo el periodo del log. El script que la genera está en `scripts/crear_muestra.py`.
 
+```{python}
+N = 100
+
+total = 0
+guardadas = 0
+with open("data/access.log", encoding="utf-8", errors="ignore") as entrada, \
+     open("data/muestra.log", "w", encoding="utf-8") as salida:
+    for numero, linea in enumerate(entrada):
+        total += 1
+        if numero % N == 0:
+            salida.write(linea)
+            guardadas += 1
+
+print("Lineas leidas:", total)
+print("Lineas guardadas en la muestra:", guardadas)
+```
+
+Ejecútalo desde la terminal de VS Code (con (.venv) activo), en la carpeta del proyecto:
+
+```{powershell}
+python scripts\crear_muestra.py
+(Get-Item data\muestra.log).Length / 1MB
+```
+
+Comprobar la muestra. Mira las primeras líneas y confirma que tienen el mismo formato que las del original:
+
+```{powershell}
+Get-Content data\muestra.log -TotalCount 5
+```
+
 ### 2.4 Tabla auxiliar de códigos HTTP
 
 Para traducir los códigos de respuesta a su significado y agruparlos por categoría, usamos una tabla auxiliar propia (`data/codigos_http.csv`) con tres columnas: `status`, `descripcion` y `categoria`.
+```{csv}
+status,descripcion,categoria
+200,OK,Éxito
+206,Partial Content,Éxito
+301,Moved Permanently,Redirección
+302,Found,Redirección
+304,Not Modified,Redirección
+400,Bad Request,Error cliente
+403,Forbidden,Error cliente
+404,Not Found,Error cliente
+405,Method Not Allowed,Error cliente
+499,Client Closed Request,Error cliente
+500,Internal Server Error,Error servidor
+502,Bad Gateway,Error servidor
+503,Service Unavailable,Error servidor
+```
 
 ## 3. Carga y parseo del log
 
@@ -109,7 +156,13 @@ df["status"] = df["status"].astype(int)
 df["bytes"] = pd.to_numeric(df["bytes"], errors="coerce")
 df["hora"] = df["fecha"].dt.hour
 df["dia"] = df["fecha"].dt.date
-df.head()
+
+tabla_centrada = df.head().style.set_properties(**{'text-align': 'center'})
+tabla_centrada.set_table_styles([
+    {'selector': 'th', 'props': [('text-align', 'center')]},
+    {'selector': 'table', 'props': [('margin-left', 'auto'), ('margin-right', 'auto')]}
+])
+tabla_centrada
 ```
 
 ::: {.callout-note}
