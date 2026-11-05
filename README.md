@@ -13,8 +13,8 @@ Análisis de los logs de acceso de un servidor web con Pandas, documentado en un
   
 ## Enlaces
 
-- **Informe publicado:** (URL de GitHub Pages, por ejemplo https://TU_USUARIO.github.io/Proyecto_FBX/)
-- **Repositorio:** https://github.com/frg-skbd/Proyecto_FBX
+- **Informe publicado:** https://valenzuelaxiomara1-dot.github.io/Proyecto_FBX/
+- **Repositorio:** https://github.com/valenzuelaxiomara1-dot/Proyecto_FBX.git
 
 ## Objetivo
 
@@ -64,7 +64,7 @@ El archivo original `data/access.log` (3,5 GB) no se sube al repositorio.
 Requisitos: Python 3, [Quarto](https://quarto.org/docs/get-started/) y Git.
 
 ```powershell
-git clone https://github.com/frg-skbd/Proyecto_FBX.git
+git clone https://github.com/valenzuelaxiomara1-dot/Proyecto_FBX.git
 cd Proyecto_FBX
 python -m venv .venv
 .venv\Scripts\Activate.ps1
