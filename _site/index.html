@@ -1,0 +1,2223 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Fred Ruiz Guerrero, Bryan Fabricio Paucar Alvarado, Xiomara Isabella Valenzuela Maza">
+
+<title>Análisis de logs de acceso de un servidor web con Pandas – Proyecto FBX - Análisis de logs web</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-48eea8e06ff06eb442a2daacfce5ac08.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No se han encontrado resultados",
+    "search-matching-documents-text": "documentos encontrados",
+    "search-copy-link-title": "Copiar el enlace en la búsqueda",
+    "search-hide-matches-text": "Ocultar resultados adicionales",
+    "search-more-match-text": "resultado adicional en este documento",
+    "search-more-matches-text": "resultados adicionales en este documento",
+    "search-clear-button-title": "Borrar",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancelar",
+    "search-submit-button-title": "Enviar",
+    "search-label": "Buscar"
+  }
+}</script>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+<script>
+window.PlotlyConfig = {MathJaxConfig: 'local'};
+if (window.MathJax && window.MathJax.Hub && window.MathJax.Hub.Config) {window.MathJax.Hub.Config({SVG: {font: "STIX-Web"}});}
+</script>
+<script type="module">import "https://cdn.plot.ly/plotly-4.1.1.min"</script>
+
+
+
+</head>
+
+<body class="quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Saltar al contenido principal</a>
+
+<div id="quarto-search-results"></div>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">En esta página</h2>
+   
+  <ul>
+  <li><a href="#introducción-y-objetivos" id="toc-introducción-y-objetivos" class="nav-link active" data-scroll-target="#introducción-y-objetivos">1. Introducción y objetivos</a>
+  <ul class="collapse">
+  <li><a href="#contexto" id="toc-contexto" class="nav-link" data-scroll-target="#contexto">1.1 Contexto</a></li>
+  <li><a href="#preguntas-que-queremos-responder" id="toc-preguntas-que-queremos-responder" class="nav-link" data-scroll-target="#preguntas-que-queremos-responder">1.2 Preguntas que queremos responder</a></li>
+  <li><a href="#herramientas-utilizadas" id="toc-herramientas-utilizadas" class="nav-link" data-scroll-target="#herramientas-utilizadas">1.3 Herramientas utilizadas</a></li>
+  </ul></li>
+  <li><a href="#dataset" id="toc-dataset" class="nav-link" data-scroll-target="#dataset">2. Dataset</a>
+  <ul class="collapse">
+  <li><a href="#origen-licencia-y-cita" id="toc-origen-licencia-y-cita" class="nav-link" data-scroll-target="#origen-licencia-y-cita">2.1 Origen, licencia y cita</a></li>
+  <li><a href="#archivos-y-columnas" id="toc-archivos-y-columnas" class="nav-link" data-scroll-target="#archivos-y-columnas">2.2 Archivos y columnas</a></li>
+  <li><a href="#muestreo-y-justificación-del-tamaño" id="toc-muestreo-y-justificación-del-tamaño" class="nav-link" data-scroll-target="#muestreo-y-justificación-del-tamaño">2.3 Muestreo y justificación del tamaño</a></li>
+  <li><a href="#tabla-auxiliar-de-códigos-http" id="toc-tabla-auxiliar-de-códigos-http" class="nav-link" data-scroll-target="#tabla-auxiliar-de-códigos-http">2.4 Tabla auxiliar de códigos HTTP</a></li>
+  </ul></li>
+  <li><a href="#carga-y-parseo-del-log" id="toc-carga-y-parseo-del-log" class="nav-link" data-scroll-target="#carga-y-parseo-del-log">3. Carga y parseo del log</a></li>
+  <li><a href="#exploración-inicial-y-limpieza-eda" id="toc-exploración-inicial-y-limpieza-eda" class="nav-link" data-scroll-target="#exploración-inicial-y-limpieza-eda">4. Exploración inicial y limpieza (EDA)</a>
+  <ul class="collapse">
+  <li><a href="#estructura-y-tipos-de-datos" id="toc-estructura-y-tipos-de-datos" class="nav-link" data-scroll-target="#estructura-y-tipos-de-datos">4.1 Estructura y tipos de datos</a></li>
+  <li><a href="#nulos-duplicados-y-rango-de-fechas" id="toc-nulos-duplicados-y-rango-de-fechas" class="nav-link" data-scroll-target="#nulos-duplicados-y-rango-de-fechas">4.2 Nulos, duplicados y rango de fechas</a></li>
+  <li><a href="#resúmenes-estadísticos" id="toc-resúmenes-estadísticos" class="nav-link" data-scroll-target="#resúmenes-estadísticos">4.3 Resúmenes estadísticos</a></li>
+  </ul></li>
+  <li><a href="#combinación-de-datos-merge" id="toc-combinación-de-datos-merge" class="nav-link" data-scroll-target="#combinación-de-datos-merge">5. Combinación de datos (<code>merge</code>)</a>
+  <ul class="collapse">
+  <li><a href="#unión-del-log-con-client_hostname.csv" id="toc-unión-del-log-con-client_hostname.csv" class="nav-link" data-scroll-target="#unión-del-log-con-client_hostname.csv">5.1 Unión del log con <code>client_hostname.csv</code></a></li>
+  <li><a href="#unión-con-la-tabla-de-códigos-http" id="toc-unión-con-la-tabla-de-códigos-http" class="nav-link" data-scroll-target="#unión-con-la-tabla-de-códigos-http">5.2 Unión con la tabla de códigos HTTP</a></li>
+  </ul></li>
+  <li><a href="#análisis-avanzado" id="toc-análisis-avanzado" class="nav-link" data-scroll-target="#análisis-avanzado">6. Análisis avanzado</a>
+  <ul class="collapse">
+  <li><a href="#agrupaciones-groupby" id="toc-agrupaciones-groupby" class="nav-link" data-scroll-target="#agrupaciones-groupby">6.1 Agrupaciones (<code>groupby</code>)</a></li>
+  <li><a href="#tabla-dinámica-pivot_table" id="toc-tabla-dinámica-pivot_table" class="nav-link" data-scroll-target="#tabla-dinámica-pivot_table">6.2 Tabla dinámica (<code>pivot_table</code>)</a></li>
+  <li><a href="#selección-avanzada-loc-e-iloc" id="toc-selección-avanzada-loc-e-iloc" class="nav-link" data-scroll-target="#selección-avanzada-loc-e-iloc">6.3 Selección avanzada (<code>loc</code> e <code>iloc</code>)</a></li>
+  </ul></li>
+  <li><a href="#visualización" id="toc-visualización" class="nav-link" data-scroll-target="#visualización">7. Visualización</a>
+  <ul class="collapse">
+  <li><a href="#gráfico-estático-códigos-de-respuesta" id="toc-gráfico-estático-códigos-de-respuesta" class="nav-link" data-scroll-target="#gráfico-estático-códigos-de-respuesta">7.1 Gráfico estático: códigos de respuesta</a></li>
+  <li><a href="#gráfico-estático-mapa-de-calor-hora-categoría" id="toc-gráfico-estático-mapa-de-calor-hora-categoría" class="nav-link" data-scroll-target="#gráfico-estático-mapa-de-calor-hora-categoría">7.2 Gráfico estático: mapa de calor hora × categoría</a></li>
+  <li><a href="#gráfico-interactivo-y-gráfico-animado" id="toc-gráfico-interactivo-y-gráfico-animado" class="nav-link" data-scroll-target="#gráfico-interactivo-y-gráfico-animado">7.3 Gráfico interactivo y gráfico animado</a></li>
+  </ul></li>
+  <li><a href="#conclusiones-y-acciones-correctoras" id="toc-conclusiones-y-acciones-correctoras" class="nav-link" data-scroll-target="#conclusiones-y-acciones-correctoras">8. Conclusiones y acciones correctoras</a></li>
+  <li><a href="#anexo-herramientas-y-enlaces" id="toc-anexo-herramientas-y-enlaces" class="nav-link" data-scroll-target="#anexo-herramientas-y-enlaces">Anexo: herramientas y enlaces</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Análisis de logs de acceso de un servidor web con Pandas</h1>
+<p class="subtitle lead">Proyecto FBX · Trabajo 1 · 2º de ASIR</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Autor/a</div>
+    <div class="quarto-title-meta-contents">
+             <p>Fred Ruiz Guerrero, Bryan Fabricio Paucar Alvarado, Xiomara Isabella Valenzuela Maza </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Fecha de publicación</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">4 de noviembre de 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<hr>
+<section id="introducción-y-objetivos" class="level2">
+<h2 class="anchored" data-anchor-id="introducción-y-objetivos">1. Introducción y objetivos</h2>
+<section id="contexto" class="level3">
+<h3 class="anchored" data-anchor-id="contexto">1.1 Contexto</h3>
+<p>Un servidor web anota en un archivo de texto (el <em>log de acceso</em>) cada petición que recibe: quién la hace, cuándo, qué pide y si el servidor pudo atenderla. Para un administrador de sistemas, ese archivo es una fuente directa de información sobre el rendimiento, los errores y la seguridad del servicio.</p>
+<p>En este trabajo analizamos con Pandas el log de acceso de una tienda online, siguiendo el método de un SysAdmin: limpiar los datos, explorarlos, hacer preguntas concretas y proponer acciones correctoras a partir de los resultados.</p>
+</section>
+<section id="preguntas-que-queremos-responder" class="level3">
+<h3 class="anchored" data-anchor-id="preguntas-que-queremos-responder">1.2 Preguntas que queremos responder</h3>
+<ol type="1">
+<li>¿Cuándo hay más carga en el servidor y cómo se reparte a lo largo del día?</li>
+<li>¿Qué proporción de peticiones termina en error y de qué tipo (cliente o servidor)?</li>
+<li>¿Qué direcciones IP generan más tráfico o más errores y podrían ser abusivas?</li>
+<li>¿Qué parte del tráfico procede de robots (bots) y cuál de usuarios reales?</li>
+<li>¿Qué parte del tráfico procede de máquinas identificables por nombre (hostname)?</li>
+</ol>
+</section>
+<section id="herramientas-utilizadas" class="level3">
+<h3 class="anchored" data-anchor-id="herramientas-utilizadas">1.3 Herramientas utilizadas</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Herramienta</th>
+<th>Uso en el proyecto</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Python y Pandas</td>
+<td>Carga, limpieza, agrupación y análisis de los datos</td>
+</tr>
+<tr class="even">
+<td>Matplotlib y Seaborn</td>
+<td>Gráficos estáticos</td>
+</tr>
+<tr class="odd">
+<td>Plotly</td>
+<td>Gráficos interactivos y animados</td>
+</tr>
+<tr class="even">
+<td>Quarto</td>
+<td>Redacción del informe y generación de la web</td>
+</tr>
+<tr class="odd">
+<td>Git y GitHub</td>
+<td>Control de versiones, repositorio y publicación en GitHub Pages</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="dataset" class="level2">
+<h2 class="anchored" data-anchor-id="dataset">2. Dataset</h2>
+<section id="origen-licencia-y-cita" class="level3">
+<h3 class="anchored" data-anchor-id="origen-licencia-y-cita">2.1 Origen, licencia y cita</h3>
+<p>El dataset <em>Web Server Access Logs</em> está publicado en Kaggle por eliasdabbas y procede de un conjunto de datos de Harvard Dataverse. Contiene 3,5 GB de logs en formato Nginx de una tienda online iraní. Su licencia es CC0 (dominio público).</p>
+<ul>
+<li>Kaggle: <a href="https://www.kaggle.com/datasets/eliasdabbas/web-server-access-logs" class="uri">https://www.kaggle.com/datasets/eliasdabbas/web-server-access-logs</a></li>
+<li>Cita: Zaker, Farzin (2019), «Online Shopping Store - Web Server Logs», Harvard Dataverse, V1, <a href="https://doi.org/10.7910/DVN/3QBYB5" class="uri">https://doi.org/10.7910/DVN/3QBYB5</a></li>
+</ul>
+<p>Es un dataset adecuado para la administración de sistemas porque reproduce el trabajo real con logs de un servidor web: tráfico de usuarios, tráfico de robots, errores HTTP y posibles comportamientos abusivos.</p>
+</section>
+<section id="archivos-y-columnas" class="level3">
+<h3 class="anchored" data-anchor-id="archivos-y-columnas">2.2 Archivos y columnas</h3>
+<p>El dataset incluye dos archivos.</p>
+<p><strong><code>access.log</code></strong> (3,5 GB): una línea por petición. De cada línea extraemos estos campos:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Columna</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>ip</code></td>
+<td>Dirección IP del cliente que hace la petición</td>
+</tr>
+<tr class="even">
+<td><code>fecha</code></td>
+<td>Fecha y hora de la petición (con zona horaria)</td>
+</tr>
+<tr class="odd">
+<td><code>metodo</code></td>
+<td>Método HTTP (GET, POST…)</td>
+</tr>
+<tr class="even">
+<td><code>url</code></td>
+<td>Recurso solicitado</td>
+</tr>
+<tr class="odd">
+<td><code>protocolo</code></td>
+<td>Versión del protocolo HTTP</td>
+</tr>
+<tr class="even">
+<td><code>status</code></td>
+<td>Código de respuesta del servidor (200, 404, 500…)</td>
+</tr>
+<tr class="odd">
+<td><code>bytes</code></td>
+<td>Tamaño de la respuesta en bytes</td>
+</tr>
+<tr class="even">
+<td><code>referer</code></td>
+<td>Página desde la que llegó el cliente</td>
+</tr>
+<tr class="odd">
+<td><code>user_agent</code></td>
+<td>Navegador o programa que hizo la petición</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>client_hostname.csv</code></strong> (13 MB): información adicional sobre los clientes.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Columna</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>client</code></td>
+<td>Dirección IP del cliente (clave para unir con el log)</td>
+</tr>
+<tr class="even">
+<td><code>hostname</code></td>
+<td>Nombre de la máquina asociado a esa IP</td>
+</tr>
+<tr class="odd">
+<td><code>alias_list</code></td>
+<td>Alias del nombre (en la mayoría de casos, <em>Unknown host</em>)</td>
+</tr>
+<tr class="even">
+<td><code>address_list</code></td>
+<td>Lista de direcciones (casi siempre vacía)</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="muestreo-y-justificación-del-tamaño" class="level3">
+<h3 class="anchored" data-anchor-id="muestreo-y-justificación-del-tamaño">2.3 Muestreo y justificación del tamaño</h3>
+<p>El log completo pesa 3,5 GB: no cabe en un repositorio de GitHub (límite de 100 MB por archivo) y es demasiado grande para procesarlo cómodamente en un ordenador personal. Por eso trabajamos con una <strong>muestra sistemática</strong>: una de cada N líneas, con N = 100 (<em>sustituid por el valor real que hayáis usado</em>). Tomar una línea de cada N, en lugar de las primeras líneas, reparte la muestra por todo el periodo del log. El script que la genera está en <code>scripts/crear_muestra.py</code>.</p>
+</section>
+<section id="tabla-auxiliar-de-códigos-http" class="level3">
+<h3 class="anchored" data-anchor-id="tabla-auxiliar-de-códigos-http">2.4 Tabla auxiliar de códigos HTTP</h3>
+<p>Para traducir los códigos de respuesta a su significado y agruparlos por categoría, usamos una tabla auxiliar propia (<code>data/codigos_http.csv</code>) con tres columnas: <code>status</code>, <code>descripcion</code> y <code>categoria</code>.</p>
+</section>
+</section>
+<section id="carga-y-parseo-del-log" class="level2">
+<h2 class="anchored" data-anchor-id="carga-y-parseo-del-log">3. Carga y parseo del log</h2>
+<p>Cada línea del log es texto plano. Mediante una expresión regular separamos sus campos y los guardamos en las columnas de un DataFrame. Después convertimos los tipos de datos: la fecha a tipo fecha (en la hora local del servidor, Irán, UTC+3:30), el código de estado a entero y los bytes a número.</p>
+<div id="ca4f0c7d" class="cell" data-execution_count="1">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> seaborn <span class="im">as</span> sns</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> plotly.express <span class="im">as</span> px</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>patron <span class="op">=</span> <span class="vs">r'</span><span class="kw">(</span><span class="dv">\S</span><span class="op">+</span><span class="kw">)</span><span class="vs"> </span><span class="dv">\S</span><span class="op">+</span><span class="vs"> </span><span class="dv">\S</span><span class="op">+</span><span class="vs"> </span><span class="ch">\[</span><span class="kw">(</span><span class="dv">.</span><span class="op">*?</span><span class="kw">)</span><span class="ch">\]</span><span class="vs"> "</span><span class="kw">(</span><span class="dv">\S</span><span class="op">+</span><span class="kw">)</span><span class="vs"> </span><span class="kw">(</span><span class="dv">.</span><span class="op">*?</span><span class="kw">)</span><span class="vs"> </span><span class="kw">(</span><span class="dv">\S</span><span class="op">+</span><span class="kw">)</span><span class="vs">" </span><span class="kw">(</span><span class="dv">\d</span><span class="op">{3}</span><span class="kw">)</span><span class="vs"> </span><span class="kw">(</span><span class="dv">\S</span><span class="op">+</span><span class="kw">)</span><span class="vs"> "</span><span class="kw">(</span><span class="dv">.</span><span class="op">*?</span><span class="kw">)</span><span class="vs">" "</span><span class="kw">(</span><span class="dv">.</span><span class="op">*?</span><span class="kw">)</span><span class="vs">"'</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>columnas <span class="op">=</span> [<span class="st">"ip"</span>, <span class="st">"fecha"</span>, <span class="st">"metodo"</span>, <span class="st">"url"</span>, <span class="st">"protocolo"</span>, <span class="st">"status"</span>, <span class="st">"bytes"</span>, <span class="st">"referer"</span>, <span class="st">"user_agent"</span>]</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="st">"data/muestra.log"</span>, encoding<span class="op">=</span><span class="st">"utf-8"</span>, errors<span class="op">=</span><span class="st">"ignore"</span>) <span class="im">as</span> f:</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    lineas <span class="op">=</span> f.read().splitlines()</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.Series(lineas).<span class="bu">str</span>.extract(patron)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>df.columns <span class="op">=</span> columnas</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Líneas leídas:"</span>, <span class="bu">len</span>(df))</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Líneas sin parsear:"</span>, df[<span class="st">"ip"</span>].isna().<span class="bu">sum</span>())</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df.dropna(subset<span class="op">=</span>[<span class="st">"ip"</span>]).copy()</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"fecha"</span>] <span class="op">=</span> pd.to_datetime(df[<span class="st">"fecha"</span>], <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%d</span><span class="st">/%b/%Y:%H:%M:%S %z"</span>, utc<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"fecha"</span>] <span class="op">=</span> df[<span class="st">"fecha"</span>].dt.tz_convert(<span class="st">"Asia/Tehran"</span>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"status"</span>] <span class="op">=</span> df[<span class="st">"status"</span>].astype(<span class="bu">int</span>)</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"bytes"</span>] <span class="op">=</span> pd.to_numeric(df[<span class="st">"bytes"</span>], errors<span class="op">=</span><span class="st">"coerce"</span>)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"hora"</span>] <span class="op">=</span> df[<span class="st">"fecha"</span>].dt.hour</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"dia"</span>] <span class="op">=</span> df[<span class="st">"fecha"</span>].dt.date</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>df.head()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Líneas leídas: 103652
+Líneas sin parsear: 2</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">ip</th>
+<th data-quarto-table-cell-role="th">fecha</th>
+<th data-quarto-table-cell-role="th">metodo</th>
+<th data-quarto-table-cell-role="th">url</th>
+<th data-quarto-table-cell-role="th">protocolo</th>
+<th data-quarto-table-cell-role="th">status</th>
+<th data-quarto-table-cell-role="th">bytes</th>
+<th data-quarto-table-cell-role="th">referer</th>
+<th data-quarto-table-cell-role="th">user_agent</th>
+<th data-quarto-table-cell-role="th">hora</th>
+<th data-quarto-table-cell-role="th">dia</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>54.36.149.41</td>
+<td>2019-01-22 03:56:14+03:30</td>
+<td>GET</td>
+<td>/filter/27|13%20%D9%85%DA%AF%D8%A7%D9%BE%DB%8C...</td>
+<td>HTTP/1.1</td>
+<td>200</td>
+<td>30577</td>
+<td>-</td>
+<td>Mozilla/5.0 (compatible; AhrefsBot/6.1; +http:...</td>
+<td>3</td>
+<td>2019-01-22</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>91.99.72.15</td>
+<td>2019-01-22 03:56:37+03:30</td>
+<td>GET</td>
+<td>/product/14496/25676/%D8%B3%D8%B1-%D8%B4%D9%88...</td>
+<td>HTTP/1.1</td>
+<td>200</td>
+<td>40134</td>
+<td>-</td>
+<td>Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKi...</td>
+<td>3</td>
+<td>2019-01-22</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>5.211.97.39</td>
+<td>2019-01-22 03:56:56+03:30</td>
+<td>GET</td>
+<td>/image/4574/productModel/200x200</td>
+<td>HTTP/1.1</td>
+<td>200</td>
+<td>3577</td>
+<td>https://www.zanbil.ir/m/browse/meat-grinder/%D...</td>
+<td>Mozilla/5.0 (iPhone; CPU iPhone OS 10_3_2 like...</td>
+<td>3</td>
+<td>2019-01-22</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>66.249.66.194</td>
+<td>2019-01-22 03:57:11+03:30</td>
+<td>GET</td>
+<td>/filter/b36,p3</td>
+<td>HTTP/1.1</td>
+<td>200</td>
+<td>35145</td>
+<td>-</td>
+<td>Mozilla/5.0 (compatible; Googlebot/2.1; +http:...</td>
+<td>3</td>
+<td>2019-01-22</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>46.224.77.32</td>
+<td>2019-01-22 03:57:33+03:30</td>
+<td>GET</td>
+<td>/image/20120?name=12.jpg&amp;wh=200x200</td>
+<td>HTTP/1.1</td>
+<td>200</td>
+<td>4520</td>
+<td>-</td>
+<td>Dalvik/1.6.0 (Linux; U; Android 4.2.2; HUAWEI ...</td>
+<td>3</td>
+<td>2019-01-22</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (indicad cuántas líneas se han leído y cuántas no se han podido parsear).</p>
+<p><strong>Qué significa:</strong> (explicad si el porcentaje de líneas descartadas es despreciable o indica un problema de formato).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (por ejemplo, revisar las líneas descartadas para ver si indican un fallo del servidor o un intento de ataque).</p>
+</div>
+</div>
+</section>
+<section id="exploración-inicial-y-limpieza-eda" class="level2">
+<h2 class="anchored" data-anchor-id="exploración-inicial-y-limpieza-eda">4. Exploración inicial y limpieza (EDA)</h2>
+<section id="estructura-y-tipos-de-datos" class="level3">
+<h3 class="anchored" data-anchor-id="estructura-y-tipos-de-datos">4.1 Estructura y tipos de datos</h3>
+<div id="b07ccbe0" class="cell" data-execution_count="2">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>df.info()</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>display(df.describe())</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>&lt;class 'pandas.DataFrame'&gt;
+Index: 103650 entries, 0 to 103651
+Data columns (total 11 columns):
+ #   Column      Non-Null Count   Dtype                      
+---  ------      --------------   -----                      
+ 0   ip          103650 non-null  str                        
+ 1   fecha       103650 non-null  datetime64[us, Asia/Tehran]
+ 2   metodo      103650 non-null  str                        
+ 3   url         103650 non-null  str                        
+ 4   protocolo   103650 non-null  str                        
+ 5   status      103650 non-null  int64                      
+ 6   bytes       103650 non-null  int64                      
+ 7   referer     103650 non-null  str                        
+ 8   user_agent  103650 non-null  str                        
+ 9   hora        103650 non-null  int32                      
+ 10  dia         103650 non-null  object                     
+dtypes: datetime64[us, Asia/Tehran](1), int32(1), int64(2), object(1), str(6)
+memory usage: 9.1+ MB</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">status</th>
+<th data-quarto-table-cell-role="th">bytes</th>
+<th data-quarto-table-cell-role="th">hora</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">count</th>
+<td>103650.000000</td>
+<td>103650.000000</td>
+<td>103650.000000</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">mean</th>
+<td>209.988480</td>
+<td>12479.923714</td>
+<td>13.608915</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">std</th>
+<td>38.998591</td>
+<td>28794.463490</td>
+<td>5.736909</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">min</th>
+<td>200.000000</td>
+<td>0.000000</td>
+<td>0.000000</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">25%</th>
+<td>200.000000</td>
+<td>2042.000000</td>
+<td>10.000000</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">50%</th>
+<td>200.000000</td>
+<td>4120.000000</td>
+<td>14.000000</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">75%</th>
+<td>200.000000</td>
+<td>11498.000000</td>
+<td>18.000000</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">max</th>
+<td>504.000000</td>
+<td>769265.000000</td>
+<td>23.000000</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (número de filas, tipos de datos y valores mínimo, medio y máximo de <code>bytes</code>).</p>
+<p><strong>Qué significa:</strong> (si hay respuestas muy pesadas o muy ligeras respecto a la media).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (por ejemplo, revisar los recursos de mayor tamaño por si conviene comprimirlos o servirlos de otra forma).</p>
+</div>
+</div>
+</section>
+<section id="nulos-duplicados-y-rango-de-fechas" class="level3">
+<h3 class="anchored" data-anchor-id="nulos-duplicados-y-rango-de-fechas">4.2 Nulos, duplicados y rango de fechas</h3>
+<div id="29f0520a" class="cell" data-execution_count="3">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>display(df.isna().<span class="bu">sum</span>())</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Filas duplicadas:"</span>, df.duplicated().<span class="bu">sum</span>())</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Primera petición:"</span>, df[<span class="st">"fecha"</span>].<span class="bu">min</span>())</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Última petición:"</span>, df[<span class="st">"fecha"</span>].<span class="bu">max</span>())</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Días distintos:"</span>, df[<span class="st">"dia"</span>].nunique())</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<pre><code>ip            0
+fecha         0
+metodo        0
+url           0
+protocolo     0
+status        0
+bytes         0
+referer       0
+user_agent    0
+hora          0
+dia           0
+dtype: int64</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Filas duplicadas: 0
+Primera petición: 2019-01-22 03:56:14+03:30
+Última petición: 2019-01-26 20:29:11+03:30
+Días distintos: 5</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (columnas con nulos, número de duplicados y periodo cubierto por la muestra).</p>
+<p><strong>Qué significa:</strong> (los nulos en <code>bytes</code> suelen ser respuestas sin cuerpo; los duplicados pueden ser peticiones legítimas en el mismo segundo).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (decidir si se limpian o se conservan los datos y justificarlo).</p>
+</div>
+</div>
+</section>
+<section id="resúmenes-estadísticos" class="level3">
+<h3 class="anchored" data-anchor-id="resúmenes-estadísticos">4.3 Resúmenes estadísticos</h3>
+<p><strong>Resumen 1: distribución de códigos de respuesta.</strong></p>
+<div id="resumen-status" class="cell" data-execution_count="4">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>display(df[<span class="st">"status"</span>].value_counts())</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>(df[<span class="st">"status"</span>].value_counts(normalize<span class="op">=</span><span class="va">True</span>) <span class="op">*</span> <span class="dv">100</span>).<span class="bu">round</span>(<span class="dv">2</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="resumen-status-1" class="cell-output cell-output-display">
+<pre><code>status
+200    95912
+304     3379
+302     1954
+404      982
+301      688
+499      520
+500      152
+403       46
+502        7
+400        3
+408        3
+401        2
+504        2
+Name: count, dtype: int64</code></pre>
+</div>
+<div id="resumen-status-2" class="cell-output cell-output-display" data-execution_count="4">
+<pre><code>status
+200    92.53
+304     3.26
+302     1.89
+404     0.95
+301     0.66
+499     0.50
+500     0.15
+403     0.04
+502     0.01
+400     0.00
+408     0.00
+401     0.00
+504     0.00
+Name: proportion, dtype: float64</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (porcentaje de respuestas 200, 3xx, 4xx y 5xx).</p>
+<p><strong>Qué significa:</strong> (un porcentaje alto de 404 apunta a enlaces rotos o a escaneos; los 5xx indican fallos del servidor).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (revisar enlaces rotos y los errores 5xx en los logs de error).</p>
+</div>
+</div>
+<p><strong>Resumen 2: peticiones por hora del día (hora local del servidor).</strong></p>
+<div id="d7ffc756" class="cell" data-execution_count="5">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>por_hora <span class="op">=</span> df.groupby(<span class="st">"hora"</span>).size()</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>por_hora</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="5">
+<pre><code>hora
+0     3448
+1     2275
+2     1264
+3      790
+4      766
+5      707
+6      929
+7     1845
+8     3817
+9     5636
+10    6730
+11    7315
+12    7254
+13    7246
+14    6924
+15    6497
+16    5758
+17    5489
+18    5587
+19    5663
+20    4787
+21    4154
+22    4624
+23    4145
+dtype: int64</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (horas de mayor y menor tráfico).</p>
+<p><strong>Qué significa:</strong> (el patrón diario de uso de la tienda).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (programar mantenimientos y copias de seguridad en las horas de menor carga).</p>
+</div>
+</div>
+<p><strong>Resumen 3: las 10 IPs con más peticiones.</strong></p>
+<div id="fe002b0f" class="cell" data-execution_count="6">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"ip"</span>].value_counts().head(<span class="dv">10</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="6">
+<pre><code>ip
+66.249.66.194      3538
+66.249.66.91       3094
+66.249.66.92        928
+151.239.241.163     893
+91.99.30.32         458
+104.222.32.91       419
+91.99.72.15         415
+5.78.190.233        379
+91.99.47.57         379
+23.101.169.3        285
+Name: count, dtype: int64</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (las IPs más activas y cuántas peticiones hacen).</p>
+<p><strong>Qué significa:</strong> (una IP con un volumen mucho mayor que el resto suele ser un robot o un comportamiento abusivo).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (identificar a quién pertenece cada IP y valorar limitarla o bloquearla).</p>
+</div>
+</div>
+</section>
+</section>
+<section id="combinación-de-datos-merge" class="level2">
+<h2 class="anchored" data-anchor-id="combinación-de-datos-merge">5. Combinación de datos (<code>merge</code>)</h2>
+<section id="unión-del-log-con-client_hostname.csv" class="level3">
+<h3 class="anchored" data-anchor-id="unión-del-log-con-client_hostname.csv">5.1 Unión del log con <code>client_hostname.csv</code></h3>
+<p>Antes de combinar, exploramos el segundo archivo y eliminamos IPs repetidas para que cada IP aparezca una sola vez. Después unimos por la IP, conservando todas las peticiones del log (<code>how="left"</code>), y comprobamos que la relación es de muchos a uno (<code>validate="m:1"</code>).</p>
+<div id="75149990" class="cell" data-execution_count="7">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>hosts <span class="op">=</span> pd.read_csv(<span class="st">"data/client_hostname.csv"</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>hosts.info()</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>hosts <span class="op">=</span> hosts.rename(columns<span class="op">=</span>{<span class="st">"client"</span>: <span class="st">"ip"</span>}).drop_duplicates(subset<span class="op">=</span><span class="st">"ip"</span>)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df.merge(hosts[[<span class="st">"ip"</span>, <span class="st">"hostname"</span>]], on<span class="op">=</span><span class="st">"ip"</span>, how<span class="op">=</span><span class="st">"left"</span>, validate<span class="op">=</span><span class="st">"m:1"</span>)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"resuelto"</span>] <span class="op">=</span> df[<span class="st">"hostname"</span>].notna() <span class="op">&amp;</span> (df[<span class="st">"hostname"</span>] <span class="op">!=</span> df[<span class="st">"ip"</span>])</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Peticiones con hostname identificado (%):"</span>, <span class="bu">round</span>(df[<span class="st">"resuelto"</span>].mean() <span class="op">*</span> <span class="dv">100</span>, <span class="dv">2</span>))</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>df.loc[df[<span class="st">"resuelto"</span>], <span class="st">"hostname"</span>].value_counts().head(<span class="dv">10</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>&lt;class 'pandas.DataFrame'&gt;
+RangeIndex: 258445 entries, 0 to 258444
+Data columns (total 4 columns):
+ #   Column        Non-Null Count   Dtype
+---  ------        --------------   -----
+ 0   client        258445 non-null  str  
+ 1   hostname      258441 non-null  str  
+ 2   alias_list    258445 non-null  str  
+ 3   address_list  5819 non-null    str  
+dtypes: str(4)
+memory usage: 7.9 MB
+Peticiones con hostname identificado (%): 5.19</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="7">
+<pre><code>hostname
+crawl-66-249-66-92.googlebot.com                     928
+host.coloup.com                                      427
+zmap.sorengard.com                                   281
+int0.client.access.fanaptelecom.net                  125
+crawl-66-249-66-94.googlebot.com                      73
+ec2-34-247-132-53.eu-west-1.compute.amazonaws.com     69
+msnbot-157-55-39-146.search.msn.com                   66
+unn-169-181-195-141.datapacket.com                    43
+82.99.202.122.parsonline.net                          34
+msnbot-157-55-39-81.search.msn.com                    33
+Name: count, dtype: int64</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (porcentaje de peticiones cuyo cliente tiene un nombre identificado y cuáles son los más frecuentes).</p>
+<p><strong>Qué significa:</strong> (la mayor parte del tráfico es anónimo; los nombres identificados suelen ser servicios y robots conocidos).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (usar los hostnames para distinguir tráfico legítimo de tráfico desconocido y decidir reglas de cortafuegos).</p>
+</div>
+</div>
+</section>
+<section id="unión-con-la-tabla-de-códigos-http" class="level3">
+<h3 class="anchored" data-anchor-id="unión-con-la-tabla-de-códigos-http">5.2 Unión con la tabla de códigos HTTP</h3>
+<div id="c3ea2219" class="cell" data-execution_count="8">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>codigos <span class="op">=</span> pd.read_csv(<span class="st">"data/codigos_http.csv"</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df.merge(codigos, on<span class="op">=</span><span class="st">"status"</span>, how<span class="op">=</span><span class="st">"left"</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"categoria"</span>] <span class="op">=</span> df[<span class="st">"categoria"</span>].fillna(<span class="st">"Otro"</span>)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>df[[<span class="st">"status"</span>, <span class="st">"descripcion"</span>, <span class="st">"categoria"</span>]].head()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="8">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">status</th>
+<th data-quarto-table-cell-role="th">descripcion</th>
+<th data-quarto-table-cell-role="th">categoria</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>200</td>
+<td>OK</td>
+<td>Éxito</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>200</td>
+<td>OK</td>
+<td>Éxito</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>200</td>
+<td>OK</td>
+<td>Éxito</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>200</td>
+<td>OK</td>
+<td>Éxito</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>200</td>
+<td>OK</td>
+<td>Éxito</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (cada código aparece ahora con su descripción y su categoría).</p>
+<p><strong>Qué significa:</strong> (permite agrupar los resultados por tipo de respuesta: éxito, redirección, error de cliente o error de servidor).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (comprobar si hay códigos con categoría “Otro” y completar la tabla auxiliar).</p>
+</div>
+</div>
+</section>
+</section>
+<section id="análisis-avanzado" class="level2">
+<h2 class="anchored" data-anchor-id="análisis-avanzado">6. Análisis avanzado</h2>
+<section id="agrupaciones-groupby" class="level3">
+<h3 class="anchored" data-anchor-id="agrupaciones-groupby">6.1 Agrupaciones (<code>groupby</code>)</h3>
+<p>Comparamos las métricas por método HTTP y, después, el tráfico de robots frente al de usuarios. Consideramos robot toda petición cuyo <em>user agent</em> contiene palabras como bot, crawler, spider o slurp.</p>
+<div id="926bdfed" class="cell" data-execution_count="9">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>resumen_metodo <span class="op">=</span> df.groupby(<span class="st">"metodo"</span>).agg(</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    peticiones<span class="op">=</span>(<span class="st">"ip"</span>, <span class="st">"size"</span>),</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    bytes_medios<span class="op">=</span>(<span class="st">"bytes"</span>, <span class="st">"mean"</span>),</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    ips_unicas<span class="op">=</span>(<span class="st">"ip"</span>, <span class="st">"nunique"</span>),</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>).sort_values(<span class="st">"peticiones"</span>, ascending<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>resumen_metodo</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="9">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">peticiones</th>
+<th data-quarto-table-cell-role="th">bytes_medios</th>
+<th data-quarto-table-cell-role="th">ips_unicas</th>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">metodo</th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">GET</th>
+<td>101862</td>
+<td>12634.628743</td>
+<td>48249</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">POST</th>
+<td>1429</td>
+<td>4587.501749</td>
+<td>941</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">HEAD</th>
+<td>346</td>
+<td>0.000000</td>
+<td>192</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">OPTIONS</th>
+<td>13</td>
+<td>0.000000</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div id="e4686f1a" class="cell" data-execution_count="10">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"es_bot"</span>] <span class="op">=</span> df[<span class="st">"user_agent"</span>].<span class="bu">str</span>.contains(<span class="st">"bot|crawler|spider|slurp"</span>, case<span class="op">=</span><span class="va">False</span>, na<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>resumen_bots <span class="op">=</span> df.groupby(<span class="st">"es_bot"</span>).agg(</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    peticiones<span class="op">=</span>(<span class="st">"ip"</span>, <span class="st">"size"</span>),</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    ips_unicas<span class="op">=</span>(<span class="st">"ip"</span>, <span class="st">"nunique"</span>),</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    bytes_medios<span class="op">=</span>(<span class="st">"bytes"</span>, <span class="st">"mean"</span>),</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>resumen_bots</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">peticiones</th>
+<th data-quarto-table-cell-role="th">ips_unicas</th>
+<th data-quarto-table-cell-role="th">bytes_medios</th>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">es_bot</th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">False</th>
+<td>92470</td>
+<td>47903</td>
+<td>11716.536077</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">True</th>
+<td>11180</td>
+<td>584</td>
+<td>18793.917889</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (reparto de peticiones por método y proporción de tráfico de robots frente a usuarios).</p>
+<p><strong>Qué significa:</strong> (los robots consumen recursos del servidor; algunos son útiles, como los buscadores, y otros no).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (configurar el archivo robots.txt, limitar la tasa de peticiones de los robots abusivos o bloquearlos).</p>
+</div>
+</div>
+</section>
+<section id="tabla-dinámica-pivot_table" class="level3">
+<h3 class="anchored" data-anchor-id="tabla-dinámica-pivot_table">6.2 Tabla dinámica (<code>pivot_table</code>)</h3>
+<p>Cruzamos la hora del día con la categoría de respuesta para ver cuándo se concentran los errores.</p>
+<div id="e79d2b75" class="cell" data-execution_count="11">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>pivot <span class="op">=</span> pd.pivot_table(</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    df, index<span class="op">=</span><span class="st">"hora"</span>, columns<span class="op">=</span><span class="st">"categoria"</span>,</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    values<span class="op">=</span><span class="st">"ip"</span>, aggfunc<span class="op">=</span><span class="st">"count"</span>, fill_value<span class="op">=</span><span class="dv">0</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>pivot</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th">categoria</th>
+<th data-quarto-table-cell-role="th">Error cliente</th>
+<th data-quarto-table-cell-role="th">Error servidor</th>
+<th data-quarto-table-cell-role="th">Otro</th>
+<th data-quarto-table-cell-role="th">Redirección</th>
+<th data-quarto-table-cell-role="th">Éxito</th>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">hora</th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>54</td>
+<td>0</td>
+<td>0</td>
+<td>200</td>
+<td>3194</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>43</td>
+<td>0</td>
+<td>0</td>
+<td>185</td>
+<td>2047</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>30</td>
+<td>0</td>
+<td>0</td>
+<td>129</td>
+<td>1105</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>12</td>
+<td>1</td>
+<td>0</td>
+<td>95</td>
+<td>682</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>21</td>
+<td>0</td>
+<td>0</td>
+<td>86</td>
+<td>659</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>9</td>
+<td>0</td>
+<td>0</td>
+<td>90</td>
+<td>608</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>19</td>
+<td>0</td>
+<td>0</td>
+<td>105</td>
+<td>805</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">7</th>
+<td>27</td>
+<td>0</td>
+<td>0</td>
+<td>119</td>
+<td>1699</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">8</th>
+<td>44</td>
+<td>0</td>
+<td>0</td>
+<td>212</td>
+<td>3561</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">9</th>
+<td>82</td>
+<td>4</td>
+<td>0</td>
+<td>267</td>
+<td>5283</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">10</th>
+<td>79</td>
+<td>1</td>
+<td>0</td>
+<td>264</td>
+<td>6386</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">11</th>
+<td>104</td>
+<td>2</td>
+<td>0</td>
+<td>374</td>
+<td>6835</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">12</th>
+<td>94</td>
+<td>0</td>
+<td>1</td>
+<td>331</td>
+<td>6828</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">13</th>
+<td>109</td>
+<td>6</td>
+<td>0</td>
+<td>361</td>
+<td>6770</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">14</th>
+<td>109</td>
+<td>7</td>
+<td>0</td>
+<td>396</td>
+<td>6412</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">15</th>
+<td>98</td>
+<td>8</td>
+<td>0</td>
+<td>405</td>
+<td>5986</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">16</th>
+<td>94</td>
+<td>5</td>
+<td>2</td>
+<td>356</td>
+<td>5301</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">17</th>
+<td>86</td>
+<td>3</td>
+<td>2</td>
+<td>368</td>
+<td>5030</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">18</th>
+<td>81</td>
+<td>54</td>
+<td>0</td>
+<td>329</td>
+<td>5123</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">19</th>
+<td>81</td>
+<td>66</td>
+<td>1</td>
+<td>400</td>
+<td>5115</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">20</th>
+<td>85</td>
+<td>1</td>
+<td>0</td>
+<td>276</td>
+<td>4425</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">21</th>
+<td>61</td>
+<td>0</td>
+<td>0</td>
+<td>249</td>
+<td>3844</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">22</th>
+<td>66</td>
+<td>1</td>
+<td>1</td>
+<td>236</td>
+<td>4320</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">23</th>
+<td>63</td>
+<td>0</td>
+<td>0</td>
+<td>188</td>
+<td>3894</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (horas con más errores de cliente o de servidor).</p>
+<p><strong>Qué significa:</strong> (si los errores se concentran en horas concretas, pueden deberse a picos de carga o a robots que actúan en ese momento).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (reforzar los recursos en esas horas o investigar la actividad de esos intervalos).</p>
+</div>
+</div>
+</section>
+<section id="selección-avanzada-loc-e-iloc" class="level3">
+<h3 class="anchored" data-anchor-id="selección-avanzada-loc-e-iloc">6.3 Selección avanzada (<code>loc</code> e <code>iloc</code>)</h3>
+<p>Aislamos comportamientos anómalos: IPs con un volumen de peticiones superior al percentil 99, IPs con más errores 404 y las respuestas más pesadas.</p>
+<div id="2f8212b4" class="cell" data-execution_count="12">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>por_ip <span class="op">=</span> df.groupby(<span class="st">"ip"</span>).size().sort_values(ascending<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>umbral <span class="op">=</span> por_ip.quantile(<span class="fl">0.99</span>)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>ips_sospechosas <span class="op">=</span> por_ip.loc[por_ip <span class="op">&gt;</span> umbral]</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Umbral (percentil 99):"</span>, umbral)</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"IPs por encima del umbral:"</span>, <span class="bu">len</span>(ips_sospechosas))</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>display(ips_sospechosas.head(<span class="dv">10</span>))</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>display(por_ip.iloc[:<span class="dv">5</span>])</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Umbral (percentil 99): 11.0
+IPs por encima del umbral: 446</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<pre><code>ip
+66.249.66.194      3538
+66.249.66.91       3094
+66.249.66.92        928
+151.239.241.163     893
+91.99.30.32         458
+104.222.32.91       419
+91.99.72.15         415
+91.99.47.57         379
+5.78.190.233        379
+23.101.169.3        285
+dtype: int64</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<pre><code>ip
+66.249.66.194      3538
+66.249.66.91       3094
+66.249.66.92        928
+151.239.241.163     893
+91.99.30.32         458
+dtype: int64</code></pre>
+</div>
+</div>
+<div id="73cf3c7b" class="cell" data-execution_count="13">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>errores_404 <span class="op">=</span> df.loc[df[<span class="st">"status"</span>] <span class="op">==</span> <span class="dv">404</span>, <span class="st">"ip"</span>].value_counts().head(<span class="dv">10</span>)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>display(errores_404)</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>pesadas <span class="op">=</span> df.loc[df[<span class="st">"bytes"</span>] <span class="op">&gt;</span> df[<span class="st">"bytes"</span>].quantile(<span class="fl">0.99</span>), [<span class="st">"ip"</span>, <span class="st">"url"</span>, <span class="st">"bytes"</span>]].iloc[:<span class="dv">10</span>]</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>pesadas</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<pre><code>ip
+66.249.66.194    98
+31.184.130.52     5
+91.99.72.15       5
+2.191.96.86       5
+91.99.30.32       5
+54.38.179.185     5
+37.32.29.198      4
+79.127.77.102     4
+86.55.249.206     4
+5.117.116.238     4
+Name: count, dtype: int64</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="13">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">ip</th>
+<th data-quarto-table-cell-role="th">url</th>
+<th data-quarto-table-cell-role="th">bytes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">118</th>
+<td>95.81.102.186</td>
+<td>/static/plugins/ckeditor-3.6.2.2/js/ckeditor/c...</td>
+<td>116467</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">166</th>
+<td>109.125.174.101</td>
+<td>/static/bundle-bundle_site_defer.min.js</td>
+<td>185207</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">411</th>
+<td>185.129.234.23</td>
+<td>/image/18494?name=2.jpg&amp;wh=max</td>
+<td>126895</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">531</th>
+<td>40.77.167.170</td>
+<td>/image/27931?name=pu.141.67.117...jpg&amp;wh=max</td>
+<td>514915</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">605</th>
+<td>209.17.96.42</td>
+<td>/</td>
+<td>215514</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">694</th>
+<td>5.202.3.56</td>
+<td>/static/bundle-bundle_site_defer.min.js</td>
+<td>185207</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">703</th>
+<td>151.238.232.18</td>
+<td>/static/plugins/ckeditor-3.6.2.2/js/ckeditor/c...</td>
+<td>116467</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">749</th>
+<td>194.94.127.7</td>
+<td>/static/bundle-bundle_site_defer.min.js</td>
+<td>185207</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">1082</th>
+<td>188.245.78.220</td>
+<td>/image/1210/mainSlide</td>
+<td>111160</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1207</th>
+<td>46.100.99.217</td>
+<td>/static/plugins/ckeditor-3.6.2.2/js/ckeditor/c...</td>
+<td>116467</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (IPs que superan el umbral, IPs con más 404 y recursos más pesados).</p>
+<p><strong>Qué significa:</strong> (un alto número de 404 desde una misma IP sugiere un escaneo de rutas; las respuestas muy pesadas pueden saturar el ancho de banda).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (bloquear o limitar las IPs abusivas con el cortafuegos o con fail2ban, y optimizar los recursos más pesados).</p>
+</div>
+</div>
+</section>
+</section>
+<section id="visualización" class="level2">
+<h2 class="anchored" data-anchor-id="visualización">7. Visualización</h2>
+<section id="gráfico-estático-códigos-de-respuesta" class="level3">
+<h3 class="anchored" data-anchor-id="gráfico-estático-códigos-de-respuesta">7.1 Gráfico estático: códigos de respuesta</h3>
+<div id="371df46e" class="cell" data-execution_count="14">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">4</span>))</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>sns.countplot(data<span class="op">=</span>df, x<span class="op">=</span><span class="st">"status"</span>, order<span class="op">=</span>df[<span class="st">"status"</span>].value_counts().index)</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Distribución de códigos de estado HTTP"</span>)</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Código de estado"</span>)</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Número de peticiones"</span>)</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/cell-15-output-1.png" width="694" height="378" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (código dominante y peso relativo de los errores).</p>
+<p><strong>Qué significa:</strong> (estado general de salud del servicio).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (priorizar la corrección de los errores más frecuentes).</p>
+</div>
+</div>
+</section>
+<section id="gráfico-estático-mapa-de-calor-hora-categoría" class="level3">
+<h3 class="anchored" data-anchor-id="gráfico-estático-mapa-de-calor-hora-categoría">7.2 Gráfico estático: mapa de calor hora × categoría</h3>
+<div id="a1363020" class="cell" data-execution_count="15">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">5</span>))</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>sns.heatmap(pivot.T, cmap<span class="op">=</span><span class="st">"YlOrRd"</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Peticiones por hora y categoría de respuesta"</span>)</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Hora del día"</span>)</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Categoría de respuesta"</span>)</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/cell-16-output-1.png" width="835" height="452" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (franjas horarias con más peticiones y en qué categoría).</p>
+<p><strong>Qué significa:</strong> (patrones de uso y posibles picos anómalos).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (dimensionar los recursos del servidor según la franja de mayor carga).</p>
+</div>
+</div>
+</section>
+<section id="gráfico-interactivo-y-gráfico-animado" class="level3">
+<h3 class="anchored" data-anchor-id="gráfico-interactivo-y-gráfico-animado">7.3 Gráfico interactivo y gráfico animado</h3>
+<p>El primer gráfico es interactivo: permite hacer zoom y ver el valor exacto al pasar el ratón. Muestra la evolución de las peticiones por hora a lo largo de todo el periodo.</p>
+<div id="776b91ab" class="cell" data-execution_count="16">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>serie <span class="op">=</span> df.set_index(<span class="st">"fecha"</span>).resample(<span class="st">"1h"</span>).size().reset_index(name<span class="op">=</span><span class="st">"peticiones"</span>)</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> px.line(serie, x<span class="op">=</span><span class="st">"fecha"</span>, y<span class="op">=</span><span class="st">"peticiones"</span>,</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>              title<span class="op">=</span><span class="st">"Peticiones por hora a lo largo del periodo"</span>)</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>fig.show()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div style="height:525px; width:100%;">            <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script><script>if (window.MathJax && window.MathJax.Hub && window.MathJax.Hub.Config) {window.MathJax.Hub.Config({SVG: {font: "STIX-Web"}});}</script>                <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-4.1.1.min.js" integrity="sha256-O24V1F27f8pb0glCkelh3cVHLNiHAJ5gCaVtq2aNch8=" crossorigin="anonymous"></script>                <div id="f197e9fe-e358-4db0-8239-3c716fd9655b" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("f197e9fe-e358-4db0-8239-3c716fd9655b")) {                    Plotly.newPlot(                        "f197e9fe-e358-4db0-8239-3c716fd9655b",                        [{"hovertemplate":"fecha=%{x}\u003cbr\u003epeticiones=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"","line":{"color":"#636efa","dash":"solid"},"marker":{"symbol":"circle"},"mode":"lines","name":"","orientation":"v","showlegend":false,"x":["2019-01-22T03:00:00.000000","2019-01-22T04:00:00.000000","2019-01-22T05:00:00.000000","2019-01-22T06:00:00.000000","2019-01-22T07:00:00.000000","2019-01-22T08:00:00.000000","2019-01-22T09:00:00.000000","2019-01-22T10:00:00.000000","2019-01-22T11:00:00.000000","2019-01-22T12:00:00.000000","2019-01-22T13:00:00.000000","2019-01-22T14:00:00.000000","2019-01-22T15:00:00.000000","2019-01-22T16:00:00.000000","2019-01-22T17:00:00.000000","2019-01-22T18:00:00.000000","2019-01-22T19:00:00.000000","2019-01-22T20:00:00.000000","2019-01-22T21:00:00.000000","2019-01-22T22:00:00.000000","2019-01-22T23:00:00.000000","2019-01-23T00:00:00.000000","2019-01-23T01:00:00.000000","2019-01-23T02:00:00.000000","2019-01-23T03:00:00.000000","2019-01-23T04:00:00.000000","2019-01-23T05:00:00.000000","2019-01-23T06:00:00.000000","2019-01-23T07:00:00.000000","2019-01-23T08:00:00.000000","2019-01-23T09:00:00.000000","2019-01-23T10:00:00.000000","2019-01-23T11:00:00.000000","2019-01-23T12:00:00.000000","2019-01-23T13:00:00.000000","2019-01-23T14:00:00.000000","2019-01-23T15:00:00.000000","2019-01-23T16:00:00.000000","2019-01-23T17:00:00.000000","2019-01-23T18:00:00.000000","2019-01-23T19:00:00.000000","2019-01-23T20:00:00.000000","2019-01-23T21:00:00.000000","2019-01-23T22:00:00.000000","2019-01-23T23:00:00.000000","2019-01-24T00:00:00.000000","2019-01-24T01:00:00.000000","2019-01-24T02:00:00.000000","2019-01-24T03:00:00.000000","2019-01-24T04:00:00.000000","2019-01-24T05:00:00.000000","2019-01-24T06:00:00.000000","2019-01-24T07:00:00.000000","2019-01-24T08:00:00.000000","2019-01-24T09:00:00.000000","2019-01-24T10:00:00.000000","2019-01-24T11:00:00.000000","2019-01-24T12:00:00.000000","2019-01-24T13:00:00.000000","2019-01-24T14:00:00.000000","2019-01-24T15:00:00.000000","2019-01-24T16:00:00.000000","2019-01-24T17:00:00.000000","2019-01-24T18:00:00.000000","2019-01-24T19:00:00.000000","2019-01-24T20:00:00.000000","2019-01-24T21:00:00.000000","2019-01-24T22:00:00.000000","2019-01-24T23:00:00.000000","2019-01-25T00:00:00.000000","2019-01-25T01:00:00.000000","2019-01-25T02:00:00.000000","2019-01-25T03:00:00.000000","2019-01-25T04:00:00.000000","2019-01-25T05:00:00.000000","2019-01-25T06:00:00.000000","2019-01-25T07:00:00.000000","2019-01-25T08:00:00.000000","2019-01-25T09:00:00.000000","2019-01-25T10:00:00.000000","2019-01-25T11:00:00.000000","2019-01-25T12:00:00.000000","2019-01-25T13:00:00.000000","2019-01-25T14:00:00.000000","2019-01-25T15:00:00.000000","2019-01-25T16:00:00.000000","2019-01-25T17:00:00.000000","2019-01-25T18:00:00.000000","2019-01-25T19:00:00.000000","2019-01-25T20:00:00.000000","2019-01-25T21:00:00.000000","2019-01-25T22:00:00.000000","2019-01-25T23:00:00.000000","2019-01-26T00:00:00.000000","2019-01-26T01:00:00.000000","2019-01-26T02:00:00.000000","2019-01-26T03:00:00.000000","2019-01-26T04:00:00.000000","2019-01-26T05:00:00.000000","2019-01-26T06:00:00.000000","2019-01-26T07:00:00.000000","2019-01-26T08:00:00.000000","2019-01-26T09:00:00.000000","2019-01-26T10:00:00.000000","2019-01-26T11:00:00.000000","2019-01-26T12:00:00.000000","2019-01-26T13:00:00.000000","2019-01-26T14:00:00.000000","2019-01-26T15:00:00.000000","2019-01-26T16:00:00.000000","2019-01-26T17:00:00.000000","2019-01-26T18:00:00.000000","2019-01-26T19:00:00.000000","2019-01-26T20:00:00.000000"],"xaxis":"x","y":{"dtype":"i2","bdata":"DQCRAJUAwQDeAb4DPgUjBmwGSQZMBrwFsAUIBXIEgwSEBCwE\u002fgNZBAgEBgM6AiEBuwCwAJgA5ACdASwDOAXxBZsGJAYJBuoFawXjBP8EWwQNBEoEQgSVBDIEAQMSAjIBuQCIAHcAkgAwAcwCswOvBFMF4QSUBHQEFgRGA18DqwM6Az4DdwNBBNQDxQNzAnkB2gCWAIEAnAAEAZkBXQI0A5YD\u002fAMXBPYD9gO0A8YD7wOEBIwEgwThBCMErAMkAiQBuwCfAJ4AzgCGAZoDfgVTBqMGDAdOB\u002fwGOgaZBdsEWwXQBXMC"},"yaxis":"y","type":"scatter"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"margin":{"b":0,"l":0,"r":0,"t":30}}},"xaxis":{"anchor":"y","domain":[0.0,1.0],"title":{"text":"fecha"}},"yaxis":{"anchor":"x","domain":[0.0,1.0],"title":{"text":"peticiones"}},"legend":{"tracegroupgap":0},"title":{"text":"Peticiones por hora a lo largo del periodo"}},                        {"responsive": true}                    ).then(function(){
+                            
+var gd = document.getElementById('f197e9fe-e358-4db0-8239-3c716fd9655b');
+var x = new MutationObserver(function (mutations, observer) {{
+        var display = window.getComputedStyle(gd).display;
+        if (!display || display === 'none') {{
+            console.log([gd, 'removed!']);
+            Plotly.purge(gd);
+            observer.disconnect();
+        }}
+}});
+
+// Listen for the removal of the full notebook cells
+var notebookContainer = gd.closest('#notebook-container');
+if (notebookContainer) {{
+    x.observe(notebookContainer, {childList: true});
+}}
+
+// Listen for the clearing of the current output cell
+var outputEl = gd.closest('.output');
+if (outputEl) {{
+    x.observe(outputEl, {childList: true});
+}}
+
+                        })                };            </script>        </div>
+</div>
+</div>
+<p>El segundo gráfico es animado: muestra el perfil horario del tráfico día a día. Solo se dibuja si la muestra abarca al menos 3 días.</p>
+<div id="42abcf8c" class="cell" data-execution_count="17">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>horas <span class="op">=</span> df.groupby([<span class="st">"dia"</span>, <span class="st">"hora"</span>]).size().reset_index(name<span class="op">=</span><span class="st">"peticiones"</span>)</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>horas[<span class="st">"dia"</span>] <span class="op">=</span> horas[<span class="st">"dia"</span>].astype(<span class="bu">str</span>)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> df[<span class="st">"dia"</span>].nunique() <span class="op">&gt;=</span> <span class="dv">3</span>:</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>    fig <span class="op">=</span> px.bar(horas, x<span class="op">=</span><span class="st">"hora"</span>, y<span class="op">=</span><span class="st">"peticiones"</span>, animation_frame<span class="op">=</span><span class="st">"dia"</span>,</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>                 range_y<span class="op">=</span>[<span class="dv">0</span>, horas[<span class="st">"peticiones"</span>].<span class="bu">max</span>()],</span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>                 title<span class="op">=</span><span class="st">"Evolución del tráfico por hora, día a día"</span>)</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>    fig.show()</span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"La muestra abarca menos de 3 días: no se dibuja la animación."</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div style="height:525px; width:100%;">            <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script><script>if (window.MathJax && window.MathJax.Hub && window.MathJax.Hub.Config) {window.MathJax.Hub.Config({SVG: {font: "STIX-Web"}});}</script>                <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-4.1.1.min.js" integrity="sha256-O24V1F27f8pb0glCkelh3cVHLNiHAJ5gCaVtq2aNch8=" crossorigin="anonymous"></script>                <div id="f0c525c9-bf23-4362-8ca8-971a7da62031" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("f0c525c9-bf23-4362-8ca8-971a7da62031")) {                    Plotly.newPlot(                        "f0c525c9-bf23-4362-8ca8-971a7da62031",                        [{"hovertemplate":"dia=2019-01-22\u003cbr\u003ehora=%{x}\u003cbr\u003epeticiones=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"","marker":{"color":"#636efa","pattern":{"shape":""}},"name":"","orientation":"v","showlegend":false,"textposition":"auto","x":{"dtype":"i4","bdata":"AwAAAAQAAAAFAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0AAAAOAAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAAFQAAABYAAAAXAAAA"},"xaxis":"x","y":{"dtype":"i2","bdata":"DQCRAJUAwQDeAb4DPgUjBmwGSQZMBrwFsAUIBXIEgwSEBCwE\u002fgNZBAgE"},"yaxis":"y","type":"bar"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"margin":{"b":0,"l":0,"r":0,"t":30}}},"xaxis":{"anchor":"y","domain":[0.0,1.0],"title":{"text":"hora"}},"yaxis":{"anchor":"x","domain":[0.0,1.0],"title":{"text":"peticiones"},"range":[0,1870]},"legend":{"tracegroupgap":0},"title":{"text":"Evoluci\u00f3n del tr\u00e1fico por hora, d\u00eda a d\u00eda"},"barmode":"relative","updatemenus":[{"buttons":[{"args":[null,{"frame":{"duration":500,"redraw":true},"mode":"immediate","fromcurrent":true,"transition":{"duration":500,"easing":"linear"}}],"label":"&#9654;","method":"animate"},{"args":[[null],{"frame":{"duration":0,"redraw":true},"mode":"immediate","fromcurrent":true,"transition":{"duration":0,"easing":"linear"}}],"label":"&#9724;","method":"animate"}],"direction":"left","pad":{"r":10,"t":70},"showactive":false,"type":"buttons","x":0.1,"xanchor":"right","y":0,"yanchor":"top"}],"sliders":[{"active":0,"currentvalue":{"prefix":"dia="},"len":0.9,"pad":{"b":10,"t":60},"steps":[{"args":[["2019-01-22"],{"frame":{"duration":0,"redraw":true},"mode":"immediate","fromcurrent":true,"transition":{"duration":0,"easing":"linear"}}],"label":"2019-01-22","method":"animate"},{"args":[["2019-01-23"],{"frame":{"duration":0,"redraw":true},"mode":"immediate","fromcurrent":true,"transition":{"duration":0,"easing":"linear"}}],"label":"2019-01-23","method":"animate"},{"args":[["2019-01-24"],{"frame":{"duration":0,"redraw":true},"mode":"immediate","fromcurrent":true,"transition":{"duration":0,"easing":"linear"}}],"label":"2019-01-24","method":"animate"},{"args":[["2019-01-25"],{"frame":{"duration":0,"redraw":true},"mode":"immediate","fromcurrent":true,"transition":{"duration":0,"easing":"linear"}}],"label":"2019-01-25","method":"animate"},{"args":[["2019-01-26"],{"frame":{"duration":0,"redraw":true},"mode":"immediate","fromcurrent":true,"transition":{"duration":0,"easing":"linear"}}],"label":"2019-01-26","method":"animate"}],"x":0.1,"xanchor":"left","y":0,"yanchor":"top"}]},                        {"responsive": true}                    ).then(function(){
+                            Plotly.addFrames('f0c525c9-bf23-4362-8ca8-971a7da62031', [{"data":[{"hovertemplate":"dia=2019-01-22\u003cbr\u003ehora=%{x}\u003cbr\u003epeticiones=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"","marker":{"color":"#636efa","pattern":{"shape":""}},"name":"","orientation":"v","showlegend":false,"textposition":"auto","x":{"dtype":"i4","bdata":"AwAAAAQAAAAFAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0AAAAOAAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAAFQAAABYAAAAXAAAA"},"xaxis":"x","y":{"dtype":"i2","bdata":"DQCRAJUAwQDeAb4DPgUjBmwGSQZMBrwFsAUIBXIEgwSEBCwE\u002fgNZBAgE"},"yaxis":"y","type":"bar"}],"name":"2019-01-22"},{"data":[{"hovertemplate":"dia=2019-01-23\u003cbr\u003ehora=%{x}\u003cbr\u003epeticiones=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"","marker":{"color":"#636efa","pattern":{"shape":""}},"name":"","orientation":"v","showlegend":false,"textposition":"auto","x":{"dtype":"i4","bdata":"AAAAAAEAAAACAAAAAwAAAAQAAAAFAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0AAAAOAAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAAFQAAABYAAAAXAAAA"},"xaxis":"x","y":{"dtype":"i2","bdata":"BgM6AiEBuwCwAJgA5ACdASwDOAXxBZsGJAYJBuoFawXjBP8EWwQNBEoEQgSVBDIE"},"yaxis":"y","type":"bar"}],"name":"2019-01-23"},{"data":[{"hovertemplate":"dia=2019-01-24\u003cbr\u003ehora=%{x}\u003cbr\u003epeticiones=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"","marker":{"color":"#636efa","pattern":{"shape":""}},"name":"","orientation":"v","showlegend":false,"textposition":"auto","x":{"dtype":"i4","bdata":"AAAAAAEAAAACAAAAAwAAAAQAAAAFAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0AAAAOAAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAAFQAAABYAAAAXAAAA"},"xaxis":"x","y":{"dtype":"i2","bdata":"AQMSAjIBuQCIAHcAkgAwAcwCswOvBFMF4QSUBHQEFgRGA18DqwM6Az4DdwNBBNQD"},"yaxis":"y","type":"bar"}],"name":"2019-01-24"},{"data":[{"hovertemplate":"dia=2019-01-25\u003cbr\u003ehora=%{x}\u003cbr\u003epeticiones=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"","marker":{"color":"#636efa","pattern":{"shape":""}},"name":"","orientation":"v","showlegend":false,"textposition":"auto","x":{"dtype":"i4","bdata":"AAAAAAEAAAACAAAAAwAAAAQAAAAFAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0AAAAOAAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAAFQAAABYAAAAXAAAA"},"xaxis":"x","y":{"dtype":"i2","bdata":"xQNzAnkB2gCWAIEAnAAEAZkBXQI0A5YD\u002fAMXBPYD9gO0A8YD7wOEBIwEgwThBCME"},"yaxis":"y","type":"bar"}],"name":"2019-01-25"},{"data":[{"hovertemplate":"dia=2019-01-26\u003cbr\u003ehora=%{x}\u003cbr\u003epeticiones=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","legendgroup":"","marker":{"color":"#636efa","pattern":{"shape":""}},"name":"","orientation":"v","showlegend":false,"textposition":"auto","x":{"dtype":"i4","bdata":"AAAAAAEAAAACAAAAAwAAAAQAAAAFAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0AAAAOAAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAA"},"xaxis":"x","y":{"dtype":"i2","bdata":"rAMkAiQBuwCfAJ4AzgCGAZoDfgVTBqMGDAdOB\u002fwGOgaZBdsEWwXQBXMC"},"yaxis":"y","type":"bar"}],"name":"2019-01-26"}]);
+                        }).then(function(){
+                            
+var gd = document.getElementById('f0c525c9-bf23-4362-8ca8-971a7da62031');
+var x = new MutationObserver(function (mutations, observer) {{
+        var display = window.getComputedStyle(gd).display;
+        if (!display || display === 'none') {{
+            console.log([gd, 'removed!']);
+            Plotly.purge(gd);
+            observer.disconnect();
+        }}
+}});
+
+// Listen for the removal of the full notebook cells
+var notebookContainer = gd.closest('#notebook-container');
+if (notebookContainer) {{
+    x.observe(notebookContainer, {childList: true});
+}}
+
+// Listen for the clearing of the current output cell
+var outputEl = gd.closest('.output');
+if (outputEl) {{
+    x.observe(outputEl, {childList: true});
+}}
+
+                        })                };            </script>        </div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Nota</span>Interpretación técnica
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Qué se ve:</strong> (picos y valles a lo largo del periodo y si el perfil horario se repite cada día).</p>
+<p><strong>Qué significa:</strong> (los picos fuera del patrón habitual pueden indicar campañas, robots o ataques).</p>
+<p><strong>Qué haría un SysAdmin:</strong> (configurar alertas de monitorización cuando el tráfico supere los valores habituales).</p>
+</div>
+</div>
+</section>
+</section>
+<section id="conclusiones-y-acciones-correctoras" class="level2">
+<h2 class="anchored" data-anchor-id="conclusiones-y-acciones-correctoras">8. Conclusiones y acciones correctoras</h2>
+<p>(Resumid aquí, con datos concretos de vuestros resultados, las conclusiones principales.)</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Hallazgo</th>
+<th>Evidencia en los datos</th>
+<th>Acción correctora propuesta</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>(por ejemplo, picos de tráfico en ciertas horas)</td>
+<td>(sección 6.2 y gráfico 7.2)</td>
+<td>(por ejemplo, reforzar recursos en esa franja)</td>
+</tr>
+<tr class="even">
+<td>(por ejemplo, IP con un volumen anormal de peticiones)</td>
+<td>(sección 6.3)</td>
+<td>(por ejemplo, limitar su tasa o bloquearla con fail2ban)</td>
+</tr>
+<tr class="odd">
+<td>(por ejemplo, alto porcentaje de errores 404)</td>
+<td>(sección 4.3 y gráfico 7.1)</td>
+<td>(por ejemplo, revisar enlaces rotos)</td>
+</tr>
+<tr class="even">
+<td>(por ejemplo, tráfico de robots elevado)</td>
+<td>(sección 6.1)</td>
+<td>(por ejemplo, configurar robots.txt y limitar la tasa)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Limitaciones del análisis:</strong> el log no incluye tiempos de respuesta, por lo que no se puede estudiar la latencia; el rendimiento se analiza con el volumen de peticiones, los bytes y los códigos de estado. Además, el análisis se basa en una muestra sistemática del log completo.</p>
+</section>
+<section id="anexo-herramientas-y-enlaces" class="level2">
+<h2 class="anchored" data-anchor-id="anexo-herramientas-y-enlaces">Anexo: herramientas y enlaces</h2>
+<ul>
+<li>Repositorio de GitHub: <a href="https://github.com/frg-skbd/Proyecto_FBX" class="uri">https://github.com/frg-skbd/Proyecto_FBX</a></li>
+<li>Web publicada: (poned aquí la URL real de GitHub Pages)</li>
+<li>Versiones: (ejecutad <code>python --version</code>, <code>quarto --version</code> y <code>pip list</code> y anotad las versiones de Python, Quarto, Pandas, Matplotlib, Seaborn y Plotly)</li>
+</ul>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copiado");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copiado");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Código desplazable","output":"Salida desplazable"};
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
