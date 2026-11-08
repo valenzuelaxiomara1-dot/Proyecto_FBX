@@ -1,0 +1,17 @@
+status,descripcion,categoria
+200,OK,Éxito
+206,Partial Content,Éxito
+301,Moved Permanently,Redirección
+302,Found,Redirección
+304,Not Modified,Redirección
+400,Bad Request,Error cliente
+401,Unauthorized,Error cliente
+403,Forbidden,Error cliente
+404,Not Found,Error cliente
+405,Method Not Allowed,Error cliente
+408,Request Timeout,Error cliente
+499,Client Closed Request,Error cliente
+500,Internal Server Error,Error servidor
+502,Bad Gateway,Error servidor
+503,Service Unavailable,Error servidor
+504,Gateway Timeout,Error servido
