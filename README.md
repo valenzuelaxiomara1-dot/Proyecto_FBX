@@ -29,7 +29,7 @@ Aplicar Pandas a un caso de administración de sistemas: partiendo del log de ac
 - **Licencia de los datos:** CC0 (dominio público)
 - **Cita:** Zaker, Farzin (2019), «Online Shopping Store - Web Server Logs», Harvard Dataverse, V1, https://doi.org/10.7910/DVN/3QBYB5
 
-El log completo no cabe en GitHub (límite de 100 MB por archivo), así que el repositorio incluye una **muestra sistemática**: una de cada N líneas del original (N = 100; *sustituir por el valor real usado*). El script que la genera está en `scripts/crear_muestra.py`.
+El log completo no cabe en GitHub (límite de 100 MB por archivo), así que el repositorio incluye una **muestra sistemática**: una de cada N líneas del original (N = 100). El script que la genera está en `scripts/crear_muestra.py`.
 
 ## Contenido del análisis
 
